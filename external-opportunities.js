@@ -1,245 +1,488 @@
 (() => {
   console.log('[ExtOpp] Script loaded.');
-  
-  /*───────────────────────────────────
-   * CONFIG (MODIFIED FOR APPS SCRIPT API)
-   *───────────────────────────────────*/
-  const MENU_SELECTOR   = 'ul.MuiList-root.MuiList-padding.css-1wduhak';
-  const ITEM_ID         = 'external-opportunities';
-  const NAV_DIV_ID      = 'external-opportunities-nav';
-  const CUSTOM_DIV_ID   = 'external-opps-root';
-  const TARGET_URL      = '/students/external-opportunities';
-  
-  // NOTE: API configuration is now moved to the background script to handle CORS
-  
-  const MAX_ATTEMPTS    = 20;
 
+  /*───────────────────────────────────
+   * CONFIG
+   *───────────────────────────────────*/
+  const MENU_SELECTOR = 'ul.MuiList-root.MuiList-padding.css-1wduhak';
+  const ITEM_ID = 'external-opportunities';
+  const NAV_DIV_ID = 'external-opportunities-nav';
+  const CUSTOM_DIV_ID = 'external-opps-root';
+  const TARGET_URL = '/students/external-opportunities';
+
+  const MAX_ATTEMPTS = 20;
   let attempts = 0;
-  let cachedOpps = null;   // cache results so we fetch only once
+  let cachedOpps = null;
 
   /*───────────────────────────────────
-   * DATA FETCHING (MODIFIED TO USE MESSAGING)
+   * DATA HANDLING & TYPE SAFETY
    *───────────────────────────────────*/
-  
+
   /**
-   * Fetches opportunities by sending a message to the background script.
-   * This bypasses the browser's CORS restriction.
-   * @returns {Promise<Array<Object>>} Array of opportunity objects.
+   * Safely retrieves a property from an object, returning a fallback if missing.
+   * @param {Object} obj - The object to query.
+   * @param {string} key - The key to retrieve.
+   * @param {string} [fallback='Not Specified'] - The fallback string.
+   * @returns {string}
    */
+  const safeGet = (obj, key, fallback = 'Not Specified') => {
+    if (!obj) return fallback;
+    const val = obj[key];
+    return (val !== null && val !== undefined && val !== '') ? val : fallback;
+  };
+
+  /**
+   * Normalizes an opportunity object to ensure all fields exist.
+   * @param {Object} raw - The raw opportunity object from API.
+   * @returns {Object} Normalized opportunity object.
+   */
+  const normalizeOpportunity = (raw) => {
+    // Helper to format dates if possible
+    const formatDeadline = (d) => {
+      if (!d) return 'Not Specified';
+      try {
+        const date = new Date(d);
+        // Check if date is valid
+        if (isNaN(date.getTime())) return d;
+        return date.toLocaleDateString(undefined, {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      } catch (e) {
+        return d;
+      }
+    };
+
+    return {
+      id: raw.id || Math.random().toString(36).substr(2, 9), // Ensure an ID for selection
+      title: safeGet(raw, 'opportunityTitle', 'Untitled Role'),
+      orgName: safeGet(raw, 'orgName', 'Unknown Organization'),
+      location: safeGet(raw, 'location', 'Remote/Unspecified'), // Assuming location might exist or default
+      deadline: formatDeadline(raw['deadline']),
+      deadlineRaw: raw['deadline'], // Keep raw for sorting if needed
+      postedDate: formatDeadline(raw['startDate']),
+
+      // Details
+      skills: safeGet(raw, 'elibigilityRestrictions', 'Not Specified'),
+      compensation: safeGet(raw, 'compensationType', 'Not Specified'),
+      workArrangement: safeGet(raw, 'workArrangement', 'Not Specified'),
+      duration: safeGet(raw, 'duration', 'Not Specified'),
+
+      // Description
+      description: safeGet(raw, 'jdText') !== 'Not Specified' ? raw['jdText'] : (raw['additionalDetails'] || 'No additional details provided.'),
+
+      // Links
+      applyLink: raw['toApply'] || null,
+      jdLink: raw['jdLink'] || null, // Assuming a JD link might exist, or we use apply link if different? User asked for View JD button.
+
+      // Meta
+      posterName: safeGet(raw, 'responderEmail', 'Anonymous').split('@')[0], // Simplified poster name
+      posterEmail: safeGet(raw, 'responderEmail', '')
+    };
+  };
+
+  /*───────────────────────────────────
+   * DATA FETCHING
+   *───────────────────────────────────*/
   const fetchOpportunities = async () => {
     if (cachedOpps) return cachedOpps;
-    
+
     try {
-      // Send a message to the background script asking it to fetch data
       const response = await chrome.runtime.sendMessage({ action: "fetchOpportunities" });
-      
-      console.log('[ExtOpp] Received response:', response);
-      
-      // Check for errors returned from the background script
+
       if (response && response.error) {
-        console.error('[ExtOpp] Background fetch error:', response.message);
         throw new Error(response.message);
       }
 
-      // The API returns an array directly
-      const opps = Array.isArray(response) ? response : [];
-      
-      if (opps.length === 0) {
-        console.warn('[ExtOpp] No opportunities found in response');
-      }
-
-      cachedOpps = opps; 
+      const rawList = Array.isArray(response) ? response : [];
+      // Normalize data immediately
+      cachedOpps = rawList.map(normalizeOpportunity);
       return cachedOpps;
 
     } catch (err) {
-      console.error('[ExtOpp] Fetch request failed (via messaging):', err);
-      // Update the container to show the failure message
-      const container = document.getElementById(CUSTOM_DIV_ID);
-      if (container) {
-          container.innerHTML = '<p style="color:red;">Error fetching data. Check background script logs for API issues.</p>';
-      }
+      console.error('[ExtOpp] Fetch error:', err);
       return [];
     }
   };
 
   /*───────────────────────────────────
-   * STYLING (UNCHANGED)
+   * RENDERING & UI
    *───────────────────────────────────*/
+
   const injectStyles = () => {
     if (document.getElementById('extopp-styles')) return;
     const style = document.createElement('style');
     style.id = 'extopp-styles';
     style.textContent = `
-      #${CUSTOM_DIV_ID}       { 
-        padding: 2rem; 
-        font-family: system-ui, -apple-system, sans-serif; 
+      #${CUSTOM_DIV_ID} { 
+        height: calc(100vh - 100px); /* Adjust based on header height, approx */
         width: 100%; 
-        max-width: 1200px;
+        max-width: 1400px;
         margin: 0 auto;
-      }
-      
-      .extopp-card { 
-        border: 1px solid #e0e0e0; 
-        border-radius: 12px; 
-        padding: 1.5rem;
-        margin-bottom: 1.5rem; 
-        background: #ffffff;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-        transition: box-shadow 0.2s ease, transform 0.2s ease;
-      }
-      
-      .extopp-card:hover {
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-        transform: translateY(-2px);
-      }
-      
-      .extopp-card h2 { 
-        font-size: 1.35rem; 
-        margin: 0 0 0.5rem; 
-        color: #1a1a1a;
-        font-weight: 600;
-      }
-      
-      .extopp-card p { 
-        margin: 0.4rem 0; 
-        font-size: 0.95rem; 
-        color: #555; 
-        line-height: 1.5; 
-      }
-      
-      .extopp-card a { 
-        display: inline-block; 
-        margin-top: 0.75rem; 
-        padding: 0.5rem 1.25rem;
-        background: #0066cc;
-        color: white;
-        text-decoration: none;
-        font-weight: 500;
-        border-radius: 6px;
-        transition: background 0.2s ease;
-      }
-      
-      .extopp-card a:hover { 
-        background: #0052a3;
-        text-decoration: none;
-      }
-     
-      .extopp-header {
-        margin-bottom: 1rem;
-        padding-bottom: 0.75rem;
-        border-bottom: 1px solid #f0f0f0;
+        padding: 1rem;
+        box-sizing: border-box;
+        font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: #f4f6f8;
+        display: flex;
+        gap: 1rem;
+        overflow: hidden;
       }
 
-      .extopp-meta {
+      /* Sidebar */
+      .extopp-sidebar {
+        flex: 0 0 350px;
+        background: #fff;
+        border-radius: 8px;
+        border: 1px solid #dfe1e5;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      .extopp-sidebar-header {
+        padding: 1rem;
+        border-bottom: 2px solid #3B32B3; /* Superset Blue */
+        background: #fff;
+      }
+      .extopp-sidebar-header h3 {
+        margin: 0;
+        color: #3B32B3;
+        font-size: 1.1rem;
+      }
+
+      .extopp-list {
+        flex: 1;
+        overflow-y: auto;
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+
+      .extopp-list-item {
+        padding: 1rem;
+        border-bottom: 1px solid #f0f0f0;
+        cursor: pointer;
+        transition: background 0.15s ease;
+      }
+      .extopp-list-item:hover {
+        background: #f9f9fa;
+      }
+      .extopp-list-item.selected {
+        background: #eef2ff;
+        border-left: 3px solid #3B32B3;
+      }
+
+      .extopp-item-title {
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 0.25rem;
+        font-size: 1rem;
+      }
+      .extopp-item-org {
+        color: #666;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+      }
+      .extopp-item-deadline {
+        font-size: 0.8rem;
+        color: #d9534f; /* Red-ish for deadline */
+        background: #fff0f0;
+        display: inline-block;
+        padding: 2px 6px;
+        border-radius: 4px;
+      }
+
+      /* Main Content */
+      .extopp-detail-view {
+        flex: 1;
+        background: #fff;
+        border-radius: 8px;
+        border: 1px solid #dfe1e5;
+        overflow-y: auto;
+        padding: 2rem;
+        position: relative;
+      }
+
+      .extopp-detail-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 1.5rem;
+        margin-bottom: 1.5rem;
+      }
+      
+      .extopp-detail-header-info h1 {
+        margin: 0 0 0.5rem 0;
+        font-size: 1.8rem;
+        color: #2c3e50;
+      }
+      .extopp-detail-header-info h2 {
+        margin: 0;
+        font-size: 1.2rem;
+        color: #7f8c8d;
+        font-weight: 400;
+      }
+
+      .extopp-deadline-banner {
+        margin-top: 1rem;
+        padding: 0.75rem;
+        background: #f0f4ff;
+        border: 1px solid #dbeafe;
+        border-radius: 6px;
+        color: #1e40af;
+        font-size: 0.9rem;
         display: flex;
         align-items: center;
-        gap: 0.75rem;
-        margin-top: 0.5rem;
+        gap: 0.5rem;
       }
 
-      .extopp-avatar img {
-        width: 42px;
-        height: 42px;
-        border-radius: 50%;
-        object-fit: cover;
-        border: 2px solid #e0e0e0;
+      .extopp-actions {
+        display: flex;
+        gap: 1rem;
       }
 
-      .poster-name {
-        margin: 0;
+      .btn {
+        padding: 0.6rem 1.2rem;
+        border-radius: 20px;
+        font-weight: 600;
+        text-decoration: none;
+        cursor: pointer;
         font-size: 0.9rem;
-        color: #666;
+        transition: all 0.2s;
+        border: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .btn-primary {
+        background: #3B32B3;
+        color: #fff;
+      }
+      .btn-primary:hover {
+        background: #2a2391;
+        box-shadow: 0 2px 8px rgba(59, 50, 179, 0.3);
+      }
+      .btn-secondary {
+        background: #fff;
+        color: #3B32B3;
+        border: 1px solid #3B32B3;
+      }
+      .btn-secondary:hover {
+        background: #eff6ff;
+      }
+
+      .extopp-section {
+        margin-bottom: 2rem;
+      }
+      .extopp-section h3 {
+        font-size: 1.1rem;
+        color: #2c3e50;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #3B32B3;
+        display: inline-block;
+      }
+
+      .overview-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 1.5rem;
+        background: #fafafa;
+        padding: 1.5rem;
+        border-radius: 8px;
+      }
+      .overview-item label {
+        display: block;
+        color: #7f8c8d;
+        font-size: 0.85rem;
+        margin-bottom: 0.25rem;
+        font-weight: 600;
+      }
+      .overview-item span {
+        color: #2c3e50;
+        font-size: 1rem;
+      }
+
+      .description-content {
+        line-height: 1.6;
+        color: #444;
+        white-space: pre-wrap; /* Preserve newlines */
+      }
+
+      .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        color: #999;
       }
     `;
     document.head.appendChild(style);
   };
 
-  /*───────────────────────────────────
-   * CARD RENDERING (UNCHANGED)
-   *───────────────────────────────────*/
-  const renderCard = (opp) => {
-    const card = document.createElement('div');
-    card.className = 'extopp-card';
-
-    // Map the field names from the API response
-    const title     = opp['opportunityTitle'] || 'Untitled Opportunity'; 
-    const orgName   = opp['orgName'] || 'Unknown Organization';
-    const poster    = opp['responderEmail'] || 'Unknown'; 
-    const skills    = opp['elibigilityRestrictions'] || '—'; 
-    const pay       = opp['compensationType'] || '—';
-    const wType     = opp['workArrangement'] || '—';
-    const duration  = opp['duration'] || '—'; 
-    const deadline  = opp['deadline'] || '?';
-    const link      = opp['toApply'] || ''; // Application Link
-    
-    // Attempt to format startDate (it comes as a JS Date object converted to a string in the API)
-    const startDateRaw = opp['startDate'];
-    let startDisplay = '?';
-    if (startDateRaw) {
-      try {
-        startDisplay = new Date(startDateRaw).toLocaleDateString();
-      } catch (e) {
-        startDisplay = startDateRaw;
-      }
-    }
-    
-    // Use the description fields, merged by the Apps Script
-    const longDesc = opp['jdText'] || opp['additionalDetails'] || 'No description provided.'; 
-
-    // Generate a name from the email for the avatar/poster display
-    const posterName = poster.split('@')[0].split('.').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
-    const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(posterName)}&background=random&size=128&bold=true`;
-
-    card.innerHTML = `
-      <div class="extopp-header">
-        <h2>${title}</h2>
-        <p style="margin:0.25rem 0 0.5rem; color:#666; font-size:0.95rem;"><strong>Organization:</strong> ${orgName}</p>
-        <div class="extopp-meta">
-          <div class="extopp-avatar">
-            <img src="${avatarUrl}" alt="Avatar of ${posterName}" />
-          </div>
-          <p class="poster-name"><strong>Posted By:</strong> ${posterName}</p>
+  /**
+   * Renders the master-detail layout
+   */
+  const renderLayout = (container) => {
+    container.innerHTML = `
+      <div class="extopp-sidebar">
+        <div class="extopp-sidebar-header">
+           <h3>All Opportunities</h3>
         </div>
+        <ul class="extopp-list" id="extopp-list"></ul>
       </div>
-
-      <p><strong>Eligibility/Skills:</strong> ${skills}</p>
-      <p><strong>Compensation:</strong> ${pay}</p>
-      <p><strong>Work Arrangement:</strong> ${wType}</p>
-      <p><strong>Duration:</strong> ${duration}</p>
-      <p><strong>Start Date:</strong> ${startDisplay}</p>
-      <p><strong>Deadline:</strong> ${deadline}</p>
-
-      ${longDesc ? `<p style="margin-top:0.75rem;"><strong>Description:</strong><br>${longDesc}</p>` : ''}
-      ${link ? `<a href="${link}" target="_blank" rel="noopener">Apply Now →</a>` : ''}
+      <div class="extopp-detail-view" id="extopp-detail">
+        <div class="empty-state">Select an opportunity to view details</div>
+      </div>
     `;
-
-    return card;
   };
 
+  const renderSidebarItem = (opp, isSelected = false) => {
+    const li = document.createElement('li');
+    li.className = `extopp-list-item ${isSelected ? 'selected' : ''}`;
+    li.dataset.id = opp.id;
 
-  const populateOpportunities = async () => {
-    const container = document.getElementById(CUSTOM_DIV_ID);
-    if (!container) return;
+    // Check if simplified or not
+    li.innerHTML = `
+      <div class="extopp-item-title">${opp.title}</div>
+      <div class="extopp-item-org">${opp.orgName}</div>
+      ${opp.deadlineRaw ? `<div class="extopp-item-deadline">Deadline: ${opp.deadline.split(',')[0]}</div>` : ''}
+    `;
 
-    container.innerHTML = '<p>Loading opportunities…</p>';
-    const opps = await fetchOpportunities();
+    return li;
+  };
 
-    if (!opps.length) {
-      container.innerHTML = '<p style="color:red;">No opportunities found or failed to load data (check background console).</p>';
+  const renderDetailView = (opp) => {
+    const detailContainer = document.getElementById('extopp-detail');
+    if (!opp) {
+      detailContainer.innerHTML = `<div class="empty-state">Select an opportunity to view details</div>`;
       return;
     }
 
-    container.innerHTML = '';
-    opps.forEach(o => container.appendChild(renderCard(o)));
+    // Determine buttons to show
+    let actionButtons = '';
+
+    // Apply button
+    if (opp.applyLink) {
+      actionButtons += `<a href="${opp.applyLink}" target="_blank" class="btn btn-primary">Apply Now</a>`;
+    } else {
+      actionButtons += `<button class="btn btn-primary" disabled style="opacity:0.6; cursor:not-allowed;">Apply (Link Not Specified)</button>`;
+    }
+
+    // JD button (If specific JD link exists, otherwise maybe re-use apply link or hide)
+    if (opp.jdLink && opp.jdLink !== opp.applyLink) {
+      actionButtons += `<a href="${opp.jdLink}" target="_blank" class="btn btn-secondary">View JD</a>`;
+    }
+
+    // Using "Not Specified" clearly as requested
+    detailContainer.innerHTML = `
+      <div class="extopp-detail-header">
+        <div class="extopp-detail-header-info">
+            <h1>${opp.title}</h1>
+            <h2>${opp.orgName} • ${opp.location || 'Location Not Specified'}</h2>
+            
+             <div class="extopp-deadline-banner">
+                <i class="fi fi-rr-clock"></i>
+                <span>Applications close on <strong>${opp.deadline}</strong></span>
+            </div>
+        </div>
+        <div class="extopp-actions">
+            ${actionButtons}
+        </div>
+      </div>
+
+      <div class="extopp-section">
+        <h3>Overview</h3>
+        <div class="overview-grid">
+            <div class="overview-item">
+                <label>Category</label>
+                <span>${opp.workArrangement}</span>
+            </div>
+            <div class="overview-item">
+                <label>Compensation</label>
+                <span>${opp.compensation}</span>
+            </div>
+            <div class="overview-item">
+                <label>Duration</label>
+                <span>${opp.duration}</span>
+            </div>
+            <div class="overview-item">
+                <label>Eligibility/Skills</label>
+                <span>${opp.skills}</span>
+            </div>
+        </div>
+      </div>
+
+      <div class="extopp-section">
+        <h3>Job Description</h3>
+        <div class="description-content">
+            ${opp.description}
+        </div>
+      </div>
+      
+      <div style="margin-top: 3rem; font-size: 0.8rem; color: #999; text-align: center;">
+        Posted by ${opp.posterName}
+      </div>
+    `;
+  };
+
+  const populateOpportunities = async () => {
+    const container = document.getElementById(CUSTOM_DIV_ID);
+    if (!container) return; // Should allow re-entry
+
+    container.innerHTML = '<div style="padding:2rem;">Loading opportunities...</div>';
+
+    const opps = await fetchOpportunities();
+
+    if (!opps.length) {
+      container.innerHTML = '<div style="padding:2rem; color:red;">No external opportunities found at this time.</div>';
+      return;
+    }
+
+    // Setup Layout
+    renderLayout(container);
+
+    const listContainer = document.getElementById('extopp-list');
+    let selectedId = opps[0].id; // Default to first
+
+    // Render list
+    const refreshList = () => {
+      listContainer.innerHTML = '';
+      opps.forEach(opp => {
+        const li = renderSidebarItem(opp, opp.id === selectedId);
+        li.addEventListener('click', () => {
+          selectedId = opp.id;
+          refreshList(); // Re-render list to update selection state
+          renderDetailView(opp);
+        });
+        listContainer.appendChild(li);
+      });
+    };
+
+    refreshList();
+    renderDetailView(opps[0]);
   };
 
   /*───────────────────────────────────
-   * SHOW / HIDE CUSTOM DIV (UNCHANGED)
+   * NAVIGATION & APP LOGIC
    *───────────────────────────────────*/
   const showCustomDiv = () => {
     const main = document.querySelector('main');
-    const mainChild = main?.firstElementChild;
-    if (mainChild) mainChild.style.display = 'none';
+    // Hide original content
+    if (main && main.firstElementChild) {
+      // We only hide the direct React root content usually found there
+      // Usually Superset has a specific div structure. 
+      // We try to hide all direct children except our custom one.
+      Array.from(main.children).forEach(child => {
+        if (child.id !== CUSTOM_DIV_ID) child.style.display = 'none';
+      });
+    }
 
     let customDiv = document.getElementById(CUSTOM_DIV_ID);
     if (!customDiv) {
@@ -248,87 +491,73 @@
       main.appendChild(customDiv);
       injectStyles();
     }
-    customDiv.style.display = 'block';
+    // Set to 'flex' for the container layout
+    customDiv.style.display = 'flex';
     populateOpportunities();
   };
 
   const hideCustomDiv = () => {
     const main = document.querySelector('main');
-    const mainChild = main?.firstElementChild;
-    if (mainChild) mainChild.style.display = 'block';
+    if (!main) return;
+
+    // Restore original children
+    Array.from(main.children).forEach(child => {
+      if (child.id !== CUSTOM_DIV_ID) child.style.display = 'block'; // Or whatever generic display was
+    });
 
     const customDiv = document.getElementById(CUSTOM_DIV_ID);
     if (customDiv) customDiv.style.display = 'none';
   };
 
-  /*───────────────────────────────────
-   * NAV STATE HELPERS (UNCHANGED)
-   *───────────────────────────────────*/
   const updateActiveFromUrl = () => {
+    // Basic sidebar cleanup for Superset's sidebar
     document
       .querySelectorAll(`${MENU_SELECTOR} .MuiListItemIcon-root`)
       .forEach(div => div.classList.remove('active'));
 
     const navDiv = document.getElementById(NAV_DIV_ID);
-    if (navDiv && window.location.pathname === TARGET_URL) {
-      navDiv.classList.add('active');
+    // Check if we are on the target URL
+    if (window.location.pathname === TARGET_URL) {
+      if (navDiv) navDiv.classList.add('active'); // Add active stylings if any
       showCustomDiv();
     } else {
       hideCustomDiv();
     }
   };
 
-  const updateActiveOnClick = (clickedLi) => {
-    document
-      .querySelectorAll(`${MENU_SELECTOR} li .MuiListItemIcon-root`)
-      .forEach(div => div.classList.remove('active'));
-
-    clickedLi.querySelector('.MuiListItemIcon-root')?.classList.add('active');
-    hideCustomDiv();                       
-  };
-
-  const attachClickListeners = () => {
-    document.querySelectorAll(`${MENU_SELECTOR} li`).forEach(li => {
-      if (!li.hasAttribute('data-active-watcher')) {
-        li.addEventListener('click', () => updateActiveOnClick(li));
-        li.setAttribute('data-active-watcher', 'true');
-      }
-    });
-  };
-
-  /*───────────────────────────────────
-   * SIDEBAR INJECTION (UNCHANGED)
-   *───────────────────────────────────*/
   const injectSidebarItem = (menu) => {
     if (document.getElementById(ITEM_ID)) return;
 
     const li = document.createElement('li');
     li.id = ITEM_ID;
+    // Styling classes copied from existing list items for consistency
     li.className = 'MuiListItem-root MuiListItem-gutters MuiListItem-padding css-1oy62c2';
     li.innerHTML = `
-      <div id="${NAV_DIV_ID}" class="MuiListItemIcon-root css-g1kwld" style="cursor:pointer">
-        <i class="fi fi-rr-globe text-base"></i>
-        <p class="!text-center !text-xs !max-w-[75px] !break-words !pt-0.5 text-dark">
-          External Opportunities
+      <div id="${NAV_DIV_ID}" class="MuiListItemIcon-root css-g1kwld" style="cursor:pointer; display:flex; flex-direction:column; align-items:center;">
+        <i class="fi fi-rr-globe text-base" style="font-size:1.5rem; color:#666;"></i> 
+        <p class="!text-center !text-xs !max-w-[75px] !break-words !pt-0.5 text-dark" style="margin:0; font-size:0.75rem; color:#666;">
+          External
         </p>
       </div>
     `;
+
     li.addEventListener('click', e => {
       e.preventDefault();
-      window.location.href = TARGET_URL;   
+      // Use History API to avoid full reload
+      window.history.pushState({}, '', TARGET_URL);
+      updateActiveFromUrl();
     });
 
+    // Insert at specific position (e.g. 3rd item)
     menu.children.length >= 2
-      ? menu.insertBefore(li, menu.children[2]) 
+      ? menu.insertBefore(li, menu.children[2])
       : menu.appendChild(li);
 
-    attachClickListeners();
+    // Handle browser back/forward buttons
+    window.addEventListener('popstate', updateActiveFromUrl);
     updateActiveFromUrl();
   };
 
-  /*───────────────────────────────────
-   * BOOTSTRAP (UNCHANGED)
-   *───────────────────────────────────*/
   const waitForSidebar = () => {
     const menu = document.querySelector(MENU_SELECTOR);
     if (menu) {
@@ -337,6 +566,8 @@
       setTimeout(waitForSidebar, 500);
     } else {
       console.warn('[ExtOpp] Sidebar not found.');
+      // Even if sidebar not found, check URL in case we navigated there directly
+      updateActiveFromUrl();
     }
   };
 
