@@ -11,7 +11,7 @@
   const TARGET_URL = '/students/external-opportunities';
 
   const MAX_ATTEMPTS = 20;
-  const BATCH_SIZE = 10; // Number of items to load per batch
+  const BATCH_SIZE = 10;
 
   let attempts = 0;
   let cachedOpps = null;
@@ -479,10 +479,8 @@
       }
 
       if (!document.getElementById('extopp-list')) {
-        renderLayout(container); // Re-grabs elements if layout was missing
-        // Re-bind locally scoped vars if needed, but we rely on ID lookups inside this func
+        renderLayout(container);
 
-        // Re-attach listener for button since layout was reset
         document.getElementById('extopp-load-more-btn').addEventListener('click', () => {
           visibleLimit += BATCH_SIZE;
           renderCoreList();
@@ -520,7 +518,6 @@
       }
 
       // Detail View Logic
-      // If we have data but no detail view content, or selection changed
       const detailContainer = document.getElementById('extopp-detail');
       if (selectedId && (detailContainer.innerHTML.includes('Select an opportunity') || !detailContainer.querySelector('h1'))) {
         const selectedOpp = allOpps.find(o => o.id === selectedId);
@@ -540,9 +537,6 @@
 
     if (freshOpps) {
       allOpps = freshOpps;
-      // Keep visible limit? Maybe user wants to see what they were looking at?
-      // But if they clicked load more 5 times, and we refresh, maybe keep it.
-      // If we had 0, now we have 100, visibleLimit is 10.
       renderCoreList();
       console.log('[ExtOpp] UI updated with fresh data.');
     } else if (!allOpps.length) {
@@ -575,8 +569,13 @@
   const hideCustomDiv = () => {
     const main = document.querySelector('main');
     if (!main) return;
+
+    // Restore original children
     Array.from(main.children).forEach(child => {
-      if (child.id !== CUSTOM_DIV_ID) child.style.display = 'block';
+      if (child.id !== CUSTOM_DIV_ID) {
+        // Reset display to let CSS take over (usually block or flex)
+        child.style.display = '';
+      }
     });
 
     const customDiv = document.getElementById(CUSTOM_DIV_ID);
@@ -596,17 +595,33 @@
     }
   };
 
+  const attachClickListeners = () => {
+    // Attach listeners to other sidebar items to catch navigation events
+    const items = document.querySelectorAll(`${MENU_SELECTOR} li`);
+    items.forEach(li => {
+      if (li.id !== ITEM_ID && !li.hasAttribute('data-extopp-watcher')) {
+        li.addEventListener('click', () => {
+          hideCustomDiv();
+          const navDiv = document.getElementById(NAV_DIV_ID);
+          if (navDiv) navDiv.classList.remove('active');
+        });
+        li.setAttribute('data-extopp-watcher', 'true');
+      }
+    });
+  };
+
   const injectSidebarItem = (menu) => {
     if (document.getElementById(ITEM_ID)) return;
 
     const li = document.createElement('li');
     li.id = ITEM_ID;
     li.className = 'MuiListItem-root MuiListItem-gutters MuiListItem-padding css-1oy62c2';
+    // Reverted to original simpler HTML structure
     li.innerHTML = `
-      <div id="${NAV_DIV_ID}" class="MuiListItemIcon-root css-g1kwld" style="cursor:pointer; display:flex; flex-direction:column; align-items:center;">
-        <i class="fi fi-rr-globe text-base" style="font-size:1.5rem; color:#666;"></i> 
-        <p class="!text-center !text-xs !max-w-[75px] !break-words !pt-0.5 text-dark" style="margin:0; font-size:0.75rem; color:#666;">
-          External
+      <div id="${NAV_DIV_ID}" class="MuiListItemIcon-root css-g1kwld" style="cursor:pointer">
+        <i class="fi fi-rr-globe text-base"></i>
+        <p class="!text-center !text-xs !max-w-[75px] !break-words !pt-0.5 text-dark">
+          External Opportunities
         </p>
       </div>
     `;
@@ -621,14 +636,14 @@
       ? menu.insertBefore(li, menu.children[2])
       : menu.appendChild(li);
 
-    window.addEventListener('popstate', updateActiveFromUrl);
-    updateActiveFromUrl();
+    attachClickListeners();
   };
 
   const waitForSidebar = () => {
     const menu = document.querySelector(MENU_SELECTOR);
     if (menu) {
       injectSidebarItem(menu);
+      attachClickListeners();
     } else if (++attempts < MAX_ATTEMPTS) {
       setTimeout(waitForSidebar, 500);
     } else {
@@ -636,6 +651,23 @@
       updateActiveFromUrl();
     }
   };
+
+  // Watch for URL changes via popstate (back/forward)
+  window.addEventListener('popstate', updateActiveFromUrl);
+
+  // Also watch for DOM mutations in case the sidebar is re-rendered
+  const observer = new MutationObserver(() => {
+    if (document.querySelector(MENU_SELECTOR)) {
+      if (!document.getElementById(ITEM_ID)) {
+        waitForSidebar();
+      } else {
+        // Re-attach listeners to new sibling items if any appeared
+        attachClickListeners();
+      }
+    }
+  });
+
+  observer.observe(document.body, { childList: true, subtree: true });
 
   window.addEventListener('DOMContentLoaded', updateActiveFromUrl);
   waitForSidebar();
