@@ -11,6 +11,8 @@
   const TARGET_URL = '/students/external-opportunities';
 
   const MAX_ATTEMPTS = 20;
+  const BATCH_SIZE = 10; // Number of items to load per batch
+
   let attempts = 0;
   let cachedOpps = null;
 
@@ -18,47 +20,27 @@
    * DATA HANDLING & TYPE SAFETY
    *───────────────────────────────────*/
 
-  /**
-   * Safely retrieves a property from an object, returning a fallback if missing.
-   * @param {Object} obj - The object to query.
-   * @param {string} key - The key to retrieve.
-   * @param {string} [fallback='Not Specified'] - The fallback string.
-   * @returns {string}
-   */
   const safeGet = (obj, key, fallback = 'Not Specified') => {
     if (!obj) return fallback;
     const val = obj[key];
     return (val !== null && val !== undefined && val !== '') ? val : fallback;
   };
 
-  /**
-   * Normalizes an opportunity object to ensure all fields exist.
-   * @param {Object} raw - The raw opportunity object from API.
-   * @returns {Object} Normalized opportunity object.
-   */
   const normalizeOpportunity = (raw) => {
-    // Helper to format dates if possible
     const formatDeadline = (d) => {
       if (!d) return 'Not Specified';
       try {
         const date = new Date(d);
-        // Check if date is valid
         if (isNaN(date.getTime())) return d;
         return date.toLocaleDateString(undefined, {
-          weekday: 'long',
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
+          weekday: 'long', year: 'numeric', month: 'long',
+          day: 'numeric', hour: '2-digit', minute: '2-digit'
         });
-      } catch (e) {
-        return d;
-      }
+      } catch (e) { return d; }
     };
 
     return {
-      id: raw.id || Math.random().toString(36).substr(2, 9), // Ensure an ID for selection
+      id: raw.id || Math.random().toString(36).substr(2, 9),
       title: safeGet(raw, 'opportunityTitle', 'Untitled Role'),
       orgName: safeGet(raw, 'orgName', 'Unknown Organization'),
       location: safeGet(raw, 'location', 'Remote/Unspecified'),
@@ -66,20 +48,16 @@
       deadlineRaw: raw['deadline'],
       postedDate: formatDeadline(raw['startDate']),
 
-      // Details
       skills: safeGet(raw, 'elibigilityRestrictions', 'Not Specified'),
       compensation: safeGet(raw, 'compensationType', 'Not Specified'),
       workArrangement: safeGet(raw, 'workArrangement', 'Not Specified'),
       duration: safeGet(raw, 'duration', 'Not Specified'),
 
-      // Description
       description: safeGet(raw, 'jdText') !== 'Not Specified' ? raw['jdText'] : (raw['additionalDetails'] || 'No additional details provided.'),
 
-      // Links
       applyLink: raw['toApply'] || null,
       jdLink: raw['jdLink'] || null,
 
-      // Meta
       posterName: safeGet(raw, 'responderEmail', 'Anonymous').split('@')[0],
       posterEmail: safeGet(raw, 'responderEmail', '')
     };
@@ -97,10 +75,7 @@
       if (!cached) return null;
 
       const { data, timestamp } = JSON.parse(cached);
-      // Optional: Check if cache is too old (e.g., > 24 hours), currently disabled to prioritize speed
-      // if (Date.now() - timestamp > 86400000) return null;
-
-      console.log(`[ExtOpp] Loaded ${data.length} items from cache (${new Date(timestamp).toLocaleTimeString()})`);
+      console.log(`[ExtOpp] Loaded ${data.length} items from cache`);
       return data.map(normalizeOpportunity);
     } catch (e) {
       console.warn('[ExtOpp] Failed to load cache', e);
@@ -110,10 +85,7 @@
 
   const saveToCache = (rawOpps) => {
     try {
-      const payload = {
-        data: rawOpps,
-        timestamp: Date.now()
-      };
+      const payload = { data: rawOpps, timestamp: Date.now() };
       localStorage.setItem(CACHE_KEY, JSON.stringify(payload));
     } catch (e) {
       console.warn('[ExtOpp] Failed to save cache', e);
@@ -123,21 +95,14 @@
   const fetchFromNetwork = async () => {
     try {
       const response = await chrome.runtime.sendMessage({ action: "fetchOpportunities" });
-
-      if (response && response.error) {
-        throw new Error(response.message);
-      }
+      if (response && response.error) throw new Error(response.message);
 
       const rawList = Array.isArray(response) ? response : [];
-
-      // Save raw data to cache before normalization
       saveToCache(rawList);
-
       return rawList.map(normalizeOpportunity);
 
     } catch (err) {
       console.error('[ExtOpp] Network fetch error:', err);
-      // Return null to indicate failure, so we don't overwrite cache with empty if it fails
       return null;
     }
   };
@@ -178,7 +143,7 @@
 
       .extopp-sidebar-header {
         padding: 1rem;
-        border-bottom: 2px solid #3B32B3; /* Superset Blue */
+        border-bottom: 2px solid #3B32B3;
         background: #fff;
       }
       .extopp-sidebar-header h3 {
@@ -187,9 +152,13 @@
         font-size: 1.1rem;
       }
 
-      .extopp-list {
+      .extopp-list-wrapper {
         flex: 1;
         overflow-y: auto;
+        position: relative;
+      }
+
+      .extopp-list {
         list-style: none;
         padding: 0;
         margin: 0;
@@ -222,11 +191,35 @@
       }
       .extopp-item-deadline {
         font-size: 0.8rem;
-        color: #d9534f; /* Red-ish for deadline */
+        color: #d9534f;
         background: #fff0f0;
         display: inline-block;
         padding: 2px 6px;
         border-radius: 4px;
+      }
+
+      /* Load More Footer */
+      .extopp-sidebar-footer {
+        padding: 1rem;
+        border-top: 1px solid #eee;
+        background: #fafafa;
+        text-align: center;
+      }
+      .load-more-btn {
+        background: #fff;
+        color: #3B32B3;
+        border: 1px solid #3B32B3;
+        padding: 0.6rem 1rem;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.9rem;
+        width: 100%;
+        transition: background 0.2s;
+      }
+      .load-more-btn:hover {
+          background: #3B32B3;
+          color: #fff;
       }
 
       /* Main Content */
@@ -344,7 +337,7 @@
       .description-content {
         line-height: 1.6;
         color: #444;
-        white-space: pre-wrap; /* Preserve newlines */
+        white-space: pre-wrap; 
       }
 
       .empty-state {
@@ -359,16 +352,18 @@
     document.head.appendChild(style);
   };
 
-  /**
-   * Renders the master-detail layout
-   */
   const renderLayout = (container) => {
     container.innerHTML = `
       <div class="extopp-sidebar">
         <div class="extopp-sidebar-header">
            <h3>All Opportunities</h3>
         </div>
-        <ul class="extopp-list" id="extopp-list"></ul>
+        <div class="extopp-list-wrapper">
+            <ul class="extopp-list" id="extopp-list"></ul>
+        </div>
+        <div class="extopp-sidebar-footer" id="extopp-load-more-container" style="display:none;">
+            <button class="load-more-btn" id="extopp-load-more-btn">Load More Jobs</button>
+        </div>
       </div>
       <div class="extopp-detail-view" id="extopp-detail">
         <div class="empty-state">Select an opportunity to view details</div>
@@ -397,22 +392,18 @@
       return;
     }
 
-    // Determine buttons to show
     let actionButtons = '';
 
-    // Apply button
     if (opp.applyLink) {
       actionButtons += `<a href="${opp.applyLink}" target="_blank" class="btn btn-primary">Apply Now</a>`;
     } else {
       actionButtons += `<button class="btn btn-primary" disabled style="opacity:0.6; cursor:not-allowed;">Apply (Link Not Specified)</button>`;
     }
 
-    // JD button
     if (opp.jdLink && opp.jdLink !== opp.applyLink) {
       actionButtons += `<a href="${opp.jdLink}" target="_blank" class="btn btn-secondary">View JD</a>`;
     }
 
-    // Using "Not Specified" clearly as requested
     detailContainer.innerHTML = `
       <div class="extopp-detail-header">
         <div class="extopp-detail-header-info">
@@ -468,70 +459,93 @@
     const container = document.getElementById(CUSTOM_DIV_ID);
     if (!container) return;
 
-    // 1. Try to load from cache first
+    // STATE
     const cached = loadFromCache();
-    let currentOpps = cached || [];
+    let allOpps = cached || [];
     let selectedId = null;
+    let visibleLimit = BATCH_SIZE;
 
     // Helper to render current state
-    const renderCurrentState = (opps) => {
-      if (!opps.length) {
+    const renderCoreList = () => {
+      const listContainer = document.getElementById('extopp-list');
+      const loadMoreContainer = document.getElementById('extopp-load-more-container');
+      const loadMoreBtn = document.getElementById('extopp-load-more-btn');
+
+      if (!allOpps.length) {
         if (!container.innerHTML || container.innerHTML.includes('Loading')) {
           container.innerHTML = '<div style="padding:2rem; color:red;">No external opportunities found at this time.</div>';
         }
         return;
       }
 
-      // Check if layout exists
       if (!document.getElementById('extopp-list')) {
-        renderLayout(container);
+        renderLayout(container); // Re-grabs elements if layout was missing
+        // Re-bind locally scoped vars if needed, but we rely on ID lookups inside this func
+
+        // Re-attach listener for button since layout was reset
+        document.getElementById('extopp-load-more-btn').addEventListener('click', () => {
+          visibleLimit += BATCH_SIZE;
+          renderCoreList();
+        });
       }
 
-      const listContainer = document.getElementById('extopp-list');
+      const currentListContainer = document.getElementById('extopp-list');
+      const currentLoadMoreContainer = document.getElementById('extopp-load-more-container');
 
-      // Preserve selection or default to first
-      if (!selectedId && opps.length > 0) selectedId = opps[0].id;
+      // Selection Logic
+      if (!selectedId && allOpps.length > 0) selectedId = allOpps[0].id;
+      const exists = allOpps.find(o => o.id === selectedId);
+      if (!exists && allOpps.length > 0) selectedId = allOpps[0].id;
 
-      // Note: If new data doesn't have the selectedId, we might need to reset it
-      const exists = opps.find(o => o.id === selectedId);
-      if (!exists && opps.length > 0) selectedId = opps[0].id; // Fallback reset
+      // Render List Items
+      currentListContainer.innerHTML = '';
+      const itemsToShow = allOpps.slice(0, visibleLimit);
 
-      listContainer.innerHTML = '';
-      opps.forEach(opp => {
+      itemsToShow.forEach(opp => {
         const li = renderSidebarItem(opp, opp.id === selectedId);
         li.addEventListener('click', () => {
           selectedId = opp.id;
-          // Re-render list to update selection highlighting
-          Array.from(listContainer.children).forEach(child => child.classList.remove('selected'));
+          Array.from(currentListContainer.children).forEach(child => child.classList.remove('selected'));
           li.classList.add('selected');
           renderDetailView(opp);
         });
-        listContainer.appendChild(li);
+        currentListContainer.appendChild(li);
       });
 
-      // Update detail view if needed (e.g. initial load or if selection changed due to data update)
-      if (selectedId) {
-        const selectedOpp = opps.find(o => o.id === selectedId);
+      // Toggle Load More
+      if (visibleLimit < allOpps.length) {
+        currentLoadMoreContainer.style.display = 'block';
+      } else {
+        currentLoadMoreContainer.style.display = 'none';
+      }
+
+      // Detail View Logic
+      // If we have data but no detail view content, or selection changed
+      const detailContainer = document.getElementById('extopp-detail');
+      if (selectedId && (detailContainer.innerHTML.includes('Select an opportunity') || !detailContainer.querySelector('h1'))) {
+        const selectedOpp = allOpps.find(o => o.id === selectedId);
         if (selectedOpp) renderDetailView(selectedOpp);
       }
     };
 
-    // Initial Render with Cache
-    if (currentOpps.length > 0) {
-      renderCurrentState(currentOpps);
+    // 1. Initial Render with Cache
+    if (allOpps.length > 0) {
+      renderCoreList();
     } else {
       container.innerHTML = '<div style="padding:2rem;">Loading opportunities...</div>';
     }
 
-    // 2. Fetch fresh data (Stale-While-Revalidate)
+    // 2. Fetch fresh data
     const freshOpps = await fetchFromNetwork();
 
     if (freshOpps) {
-      cachedOpps = freshOpps;
-      renderCurrentState(freshOpps);
+      allOpps = freshOpps;
+      // Keep visible limit? Maybe user wants to see what they were looking at?
+      // But if they clicked load more 5 times, and we refresh, maybe keep it.
+      // If we had 0, now we have 100, visibleLimit is 10.
+      renderCoreList();
       console.log('[ExtOpp] UI updated with fresh data.');
-    } else if (currentOpps.length === 0) {
-      // Only show error if we have nothing at all
+    } else if (!allOpps.length) {
       container.innerHTML = '<div style="padding:2rem; color:red;">Failed to load opportunities. Please try again later.</div>';
     }
   };
@@ -541,7 +555,6 @@
    *───────────────────────────────────*/
   const showCustomDiv = () => {
     const main = document.querySelector('main');
-    // Hide original content
     if (main && main.firstElementChild) {
       Array.from(main.children).forEach(child => {
         if (child.id !== CUSTOM_DIV_ID) child.style.display = 'none';
@@ -555,7 +568,6 @@
       main.appendChild(customDiv);
       injectStyles();
     }
-    // Set to 'flex' for the container layout
     customDiv.style.display = 'flex';
     populateOpportunities();
   };
@@ -563,8 +575,6 @@
   const hideCustomDiv = () => {
     const main = document.querySelector('main');
     if (!main) return;
-
-    // Restore original children
     Array.from(main.children).forEach(child => {
       if (child.id !== CUSTOM_DIV_ID) child.style.display = 'block';
     });
@@ -574,15 +584,12 @@
   };
 
   const updateActiveFromUrl = () => {
-    // Basic sidebar cleanup for Superset's sidebar
-    document
-      .querySelectorAll(`${MENU_SELECTOR} .MuiListItemIcon-root`)
+    document.querySelectorAll(`${MENU_SELECTOR} .MuiListItemIcon-root`)
       .forEach(div => div.classList.remove('active'));
 
     const navDiv = document.getElementById(NAV_DIV_ID);
-    // Check if we are on the target URL
     if (window.location.pathname === TARGET_URL) {
-      if (navDiv) navDiv.classList.add('active'); // Add active stylings if any
+      if (navDiv) navDiv.classList.add('active');
       showCustomDiv();
     } else {
       hideCustomDiv();
@@ -594,7 +601,6 @@
 
     const li = document.createElement('li');
     li.id = ITEM_ID;
-    // Styling classes copied from existing list items for consistency
     li.className = 'MuiListItem-root MuiListItem-gutters MuiListItem-padding css-1oy62c2';
     li.innerHTML = `
       <div id="${NAV_DIV_ID}" class="MuiListItemIcon-root css-g1kwld" style="cursor:pointer; display:flex; flex-direction:column; align-items:center;">
@@ -607,17 +613,14 @@
 
     li.addEventListener('click', e => {
       e.preventDefault();
-      // Use History API to avoid full reload
       window.history.pushState({}, '', TARGET_URL);
       updateActiveFromUrl();
     });
 
-    // Insert at specific position (e.g. 3rd item)
     menu.children.length >= 2
       ? menu.insertBefore(li, menu.children[2])
       : menu.appendChild(li);
 
-    // Handle browser back/forward buttons
     window.addEventListener('popstate', updateActiveFromUrl);
     updateActiveFromUrl();
   };
@@ -630,7 +633,6 @@
       setTimeout(waitForSidebar, 500);
     } else {
       console.warn('[ExtOpp] Sidebar not found.');
-      // Even if sidebar not found, check URL in case we navigated there directly
       updateActiveFromUrl();
     }
   };
