@@ -61,9 +61,9 @@
       id: raw.id || Math.random().toString(36).substr(2, 9), // Ensure an ID for selection
       title: safeGet(raw, 'opportunityTitle', 'Untitled Role'),
       orgName: safeGet(raw, 'orgName', 'Unknown Organization'),
-      location: safeGet(raw, 'location', 'Remote/Unspecified'), // Assuming location might exist or default
+      location: safeGet(raw, 'location', 'Remote/Unspecified'),
       deadline: formatDeadline(raw['deadline']),
-      deadlineRaw: raw['deadline'], // Keep raw for sorting if needed
+      deadlineRaw: raw['deadline'],
       postedDate: formatDeadline(raw['startDate']),
 
       // Details
@@ -77,20 +77,50 @@
 
       // Links
       applyLink: raw['toApply'] || null,
-      jdLink: raw['jdLink'] || null, // Assuming a JD link might exist, or we use apply link if different? User asked for View JD button.
+      jdLink: raw['jdLink'] || null,
 
       // Meta
-      posterName: safeGet(raw, 'responderEmail', 'Anonymous').split('@')[0], // Simplified poster name
+      posterName: safeGet(raw, 'responderEmail', 'Anonymous').split('@')[0],
       posterEmail: safeGet(raw, 'responderEmail', '')
     };
   };
 
   /*───────────────────────────────────
-   * DATA FETCHING
+   * DATA FETCHING & CACHING
    *───────────────────────────────────*/
-  const fetchOpportunities = async () => {
-    if (cachedOpps) return cachedOpps;
 
+  const CACHE_KEY = 'duperset_ext_opps_cache';
+
+  const loadFromCache = () => {
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (!cached) return null;
+
+      const { data, timestamp } = JSON.parse(cached);
+      // Optional: Check if cache is too old (e.g., > 24 hours), currently disabled to prioritize speed
+      // if (Date.now() - timestamp > 86400000) return null;
+
+      console.log(`[ExtOpp] Loaded ${data.length} items from cache (${new Date(timestamp).toLocaleTimeString()})`);
+      return data.map(normalizeOpportunity);
+    } catch (e) {
+      console.warn('[ExtOpp] Failed to load cache', e);
+      return null;
+    }
+  };
+
+  const saveToCache = (rawOpps) => {
+    try {
+      const payload = {
+        data: rawOpps,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(CACHE_KEY, JSON.stringify(payload));
+    } catch (e) {
+      console.warn('[ExtOpp] Failed to save cache', e);
+    }
+  };
+
+  const fetchFromNetwork = async () => {
     try {
       const response = await chrome.runtime.sendMessage({ action: "fetchOpportunities" });
 
@@ -99,13 +129,16 @@
       }
 
       const rawList = Array.isArray(response) ? response : [];
-      // Normalize data immediately
-      cachedOpps = rawList.map(normalizeOpportunity);
-      return cachedOpps;
+
+      // Save raw data to cache before normalization
+      saveToCache(rawList);
+
+      return rawList.map(normalizeOpportunity);
 
     } catch (err) {
-      console.error('[ExtOpp] Fetch error:', err);
-      return [];
+      console.error('[ExtOpp] Network fetch error:', err);
+      // Return null to indicate failure, so we don't overwrite cache with empty if it fails
+      return null;
     }
   };
 
@@ -119,7 +152,7 @@
     style.id = 'extopp-styles';
     style.textContent = `
       #${CUSTOM_DIV_ID} { 
-        height: calc(100vh - 100px); /* Adjust based on header height, approx */
+        height: calc(100vh - 100px); 
         width: 100%; 
         max-width: 1400px;
         margin: 0 auto;
@@ -348,7 +381,6 @@
     li.className = `extopp-list-item ${isSelected ? 'selected' : ''}`;
     li.dataset.id = opp.id;
 
-    // Check if simplified or not
     li.innerHTML = `
       <div class="extopp-item-title">${opp.title}</div>
       <div class="extopp-item-org">${opp.orgName}</div>
@@ -375,7 +407,7 @@
       actionButtons += `<button class="btn btn-primary" disabled style="opacity:0.6; cursor:not-allowed;">Apply (Link Not Specified)</button>`;
     }
 
-    // JD button (If specific JD link exists, otherwise maybe re-use apply link or hide)
+    // JD button
     if (opp.jdLink && opp.jdLink !== opp.applyLink) {
       actionButtons += `<a href="${opp.jdLink}" target="_blank" class="btn btn-secondary">View JD</a>`;
     }
@@ -434,39 +466,74 @@
 
   const populateOpportunities = async () => {
     const container = document.getElementById(CUSTOM_DIV_ID);
-    if (!container) return; // Should allow re-entry
+    if (!container) return;
 
-    container.innerHTML = '<div style="padding:2rem;">Loading opportunities...</div>';
+    // 1. Try to load from cache first
+    const cached = loadFromCache();
+    let currentOpps = cached || [];
+    let selectedId = null;
 
-    const opps = await fetchOpportunities();
+    // Helper to render current state
+    const renderCurrentState = (opps) => {
+      if (!opps.length) {
+        if (!container.innerHTML || container.innerHTML.includes('Loading')) {
+          container.innerHTML = '<div style="padding:2rem; color:red;">No external opportunities found at this time.</div>';
+        }
+        return;
+      }
 
-    if (!opps.length) {
-      container.innerHTML = '<div style="padding:2rem; color:red;">No external opportunities found at this time.</div>';
-      return;
-    }
+      // Check if layout exists
+      if (!document.getElementById('extopp-list')) {
+        renderLayout(container);
+      }
 
-    // Setup Layout
-    renderLayout(container);
+      const listContainer = document.getElementById('extopp-list');
 
-    const listContainer = document.getElementById('extopp-list');
-    let selectedId = opps[0].id; // Default to first
+      // Preserve selection or default to first
+      if (!selectedId && opps.length > 0) selectedId = opps[0].id;
 
-    // Render list
-    const refreshList = () => {
+      // Note: If new data doesn't have the selectedId, we might need to reset it
+      const exists = opps.find(o => o.id === selectedId);
+      if (!exists && opps.length > 0) selectedId = opps[0].id; // Fallback reset
+
       listContainer.innerHTML = '';
       opps.forEach(opp => {
         const li = renderSidebarItem(opp, opp.id === selectedId);
         li.addEventListener('click', () => {
           selectedId = opp.id;
-          refreshList(); // Re-render list to update selection state
+          // Re-render list to update selection highlighting
+          Array.from(listContainer.children).forEach(child => child.classList.remove('selected'));
+          li.classList.add('selected');
           renderDetailView(opp);
         });
         listContainer.appendChild(li);
       });
+
+      // Update detail view if needed (e.g. initial load or if selection changed due to data update)
+      if (selectedId) {
+        const selectedOpp = opps.find(o => o.id === selectedId);
+        if (selectedOpp) renderDetailView(selectedOpp);
+      }
     };
 
-    refreshList();
-    renderDetailView(opps[0]);
+    // Initial Render with Cache
+    if (currentOpps.length > 0) {
+      renderCurrentState(currentOpps);
+    } else {
+      container.innerHTML = '<div style="padding:2rem;">Loading opportunities...</div>';
+    }
+
+    // 2. Fetch fresh data (Stale-While-Revalidate)
+    const freshOpps = await fetchFromNetwork();
+
+    if (freshOpps) {
+      cachedOpps = freshOpps;
+      renderCurrentState(freshOpps);
+      console.log('[ExtOpp] UI updated with fresh data.');
+    } else if (currentOpps.length === 0) {
+      // Only show error if we have nothing at all
+      container.innerHTML = '<div style="padding:2rem; color:red;">Failed to load opportunities. Please try again later.</div>';
+    }
   };
 
   /*───────────────────────────────────
@@ -476,9 +543,6 @@
     const main = document.querySelector('main');
     // Hide original content
     if (main && main.firstElementChild) {
-      // We only hide the direct React root content usually found there
-      // Usually Superset has a specific div structure. 
-      // We try to hide all direct children except our custom one.
       Array.from(main.children).forEach(child => {
         if (child.id !== CUSTOM_DIV_ID) child.style.display = 'none';
       });
@@ -502,7 +566,7 @@
 
     // Restore original children
     Array.from(main.children).forEach(child => {
-      if (child.id !== CUSTOM_DIV_ID) child.style.display = 'block'; // Or whatever generic display was
+      if (child.id !== CUSTOM_DIV_ID) child.style.display = 'block';
     });
 
     const customDiv = document.getElementById(CUSTOM_DIV_ID);
