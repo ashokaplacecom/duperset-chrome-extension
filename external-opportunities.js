@@ -570,10 +570,8 @@
     const main = document.querySelector('main');
     if (!main) return;
 
-    // Restore original children
     Array.from(main.children).forEach(child => {
       if (child.id !== CUSTOM_DIV_ID) {
-        // Reset display to let CSS take over (usually block or flex)
         child.style.display = '';
       }
     });
@@ -582,28 +580,59 @@
     if (customDiv) customDiv.style.display = 'none';
   };
 
-  const updateActiveFromUrl = () => {
-    document.querySelectorAll(`${MENU_SELECTOR} .MuiListItemIcon-root`)
-      .forEach(div => div.classList.remove('active'));
-
+  const clearActiveStyles = () => {
+    const liItem = document.getElementById(ITEM_ID);
     const navDiv = document.getElementById(NAV_DIV_ID);
+
+    if (liItem) {
+      liItem.style.borderLeft = '';
+      liItem.style.backgroundColor = '';
+    }
+    if (navDiv) navDiv.classList.remove('active');
+  };
+
+  const updateActiveFromUrl = () => {
+    // 1. Aggressive Cleanup of Siblings (Visual only)
+    const allLists = document.querySelectorAll(MENU_SELECTOR);
+    allLists.forEach(list => {
+      const items = list.querySelectorAll('li');
+      items.forEach(li => {
+        if (li.id !== ITEM_ID) { // Don't touch our item here
+          li.classList.remove('Mui-selected');
+          li.classList.remove('active');
+          li.querySelectorAll('.active').forEach(el => el.classList.remove('active'));
+          li.querySelectorAll('.Mui-selected').forEach(el => el.classList.remove('Mui-selected'));
+        }
+      });
+    });
+
+    const liItem = document.getElementById(ITEM_ID);
+    const navDiv = document.getElementById(NAV_DIV_ID);
+
+    // 2. Set Active State for External Opps
     if (window.location.pathname === TARGET_URL) {
       if (navDiv) navDiv.classList.add('active');
+
+      // Manually apply ONLY the bar (Left Border), NO background as requested
+      if (liItem) {
+        liItem.style.borderLeft = '4px solid #3B32B3';
+        liItem.style.backgroundColor = ''; // Ensure no bg
+      }
       showCustomDiv();
     } else {
+      // Deactivate
+      clearActiveStyles();
       hideCustomDiv();
     }
   };
 
   const attachClickListeners = () => {
-    // Attach listeners to other sidebar items to catch navigation events
     const items = document.querySelectorAll(`${MENU_SELECTOR} li`);
     items.forEach(li => {
       if (li.id !== ITEM_ID && !li.hasAttribute('data-extopp-watcher')) {
         li.addEventListener('click', () => {
           hideCustomDiv();
-          const navDiv = document.getElementById(NAV_DIV_ID);
-          if (navDiv) navDiv.classList.remove('active');
+          clearActiveStyles();
         });
         li.setAttribute('data-extopp-watcher', 'true');
       }
@@ -616,7 +645,6 @@
     const li = document.createElement('li');
     li.id = ITEM_ID;
     li.className = 'MuiListItem-root MuiListItem-gutters MuiListItem-padding css-1oy62c2';
-    // Reverted to original simpler HTML structure
     li.innerHTML = `
       <div id="${NAV_DIV_ID}" class="MuiListItemIcon-root css-g1kwld" style="cursor:pointer">
         <i class="fi fi-rr-globe text-base"></i>
@@ -652,16 +680,13 @@
     }
   };
 
-  // Watch for URL changes via popstate (back/forward)
   window.addEventListener('popstate', updateActiveFromUrl);
 
-  // Also watch for DOM mutations in case the sidebar is re-rendered
   const observer = new MutationObserver(() => {
     if (document.querySelector(MENU_SELECTOR)) {
       if (!document.getElementById(ITEM_ID)) {
         waitForSidebar();
       } else {
-        // Re-attach listeners to new sibling items if any appeared
         attachClickListeners();
       }
     }
