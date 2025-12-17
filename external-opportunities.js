@@ -1,140 +1,220 @@
 (() => {
+  console.log('[ExtOpp] Script loaded.');
+  
   /*───────────────────────────────────
-   *  CONFIG
+   * CONFIG (MODIFIED FOR APPS SCRIPT API)
    *───────────────────────────────────*/
-  const MENU_SELECTOR   = 'ul.MuiList-root.MuiList-padding.css-1ontqvh';
+  const MENU_SELECTOR   = 'ul.MuiList-root.MuiList-padding.css-1wduhak';
   const ITEM_ID         = 'external-opportunities';
   const NAV_DIV_ID      = 'external-opportunities-nav';
   const CUSTOM_DIV_ID   = 'external-opps-root';
   const TARGET_URL      = '/students/external-opportunities';
-  const SHEET_CSV_URL   = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT-6TJY5bC7z2EjjApxdRGN0qnrDKiVPpyvW_872mvgD73N7XOSHCYPYY4ms9g4UWYKJNvUcvcd86s8/pub?output=csv';
+  
+  // NOTE: API configuration is now moved to the background script to handle CORS
+  
   const MAX_ATTEMPTS    = 20;
 
   let attempts = 0;
-  let cachedOpps = null;   // cache CSV results so we fetch only once
+  let cachedOpps = null;   // cache results so we fetch only once
 
   /*───────────────────────────────────
-   *  CSV → JSON
+   * DATA FETCHING (MODIFIED TO USE MESSAGING)
    *───────────────────────────────────*/
-  const parseCSV = (csvText) => {
-    const rows = csvText
-      .trim()
-      .split(/\r?\n/)
-      .map(r => r.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map(c => c.replace(/^"|"$/g, '').trim()));
-
-    const headers = rows.shift();
-    return rows.filter(r => r.length === headers.length).map(r => {
-      const obj = {};
-      headers.forEach((h, i) => { obj[h] = r[i] || ''; });
-      return obj;
-    });
-  };
-
+  
+  /**
+   * Fetches opportunities by sending a message to the background script.
+   * This bypasses the browser's CORS restriction.
+   * @returns {Promise<Array<Object>>} Array of opportunity objects.
+   */
   const fetchOpportunities = async () => {
     if (cachedOpps) return cachedOpps;
+    
     try {
-      const res  = await fetch(SHEET_CSV_URL);
-      const text = await res.text();
-      cachedOpps = parseCSV(text);
+      // Send a message to the background script asking it to fetch data
+      const response = await chrome.runtime.sendMessage({ action: "fetchOpportunities" });
+      
+      console.log('[ExtOpp] Received response:', response);
+      
+      // Check for errors returned from the background script
+      if (response && response.error) {
+        console.error('[ExtOpp] Background fetch error:', response.message);
+        throw new Error(response.message);
+      }
+
+      // The API returns an array directly
+      const opps = Array.isArray(response) ? response : [];
+      
+      if (opps.length === 0) {
+        console.warn('[ExtOpp] No opportunities found in response');
+      }
+
+      cachedOpps = opps; 
       return cachedOpps;
+
     } catch (err) {
-      console.error('[ExtOpp] CSV fetch failed:', err);
+      console.error('[ExtOpp] Fetch request failed (via messaging):', err);
+      // Update the container to show the failure message
+      const container = document.getElementById(CUSTOM_DIV_ID);
+      if (container) {
+          container.innerHTML = '<p style="color:red;">Error fetching data. Check background script logs for API issues.</p>';
+      }
       return [];
     }
   };
 
   /*───────────────────────────────────
-   *  STYLING
+   * STYLING (UNCHANGED)
    *───────────────────────────────────*/
   const injectStyles = () => {
     if (document.getElementById('extopp-styles')) return;
     const style = document.createElement('style');
     style.id = 'extopp-styles';
     style.textContent = `
-      #${CUSTOM_DIV_ID}       { padding:2rem; font-family:system-ui,sans-serif; width:100%; }
-      .extopp-card            { border:1px solid #ccc; border-radius:12px; padding:1.25rem 1.5rem;
-                                margin-bottom:1.25rem; background:#f9f9f9;
-                                box-shadow:0 2px 8px rgba(0,0,0,0.05); }
-      .extopp-card h2         { font-size:1.1rem; margin:0 0 0.4rem; }
-      .extopp-card p          { margin:0.25rem 0; font-size:0.92rem; color:#444; line-height:1.35; }
-      .extopp-card a          { display:inline-block; margin-top:0.4rem; color:#0066cc; text-decoration:none;
-                                font-weight:500; }
-      .extopp-card a:hover    { text-decoration:underline; }
+      #${CUSTOM_DIV_ID}       { 
+        padding: 2rem; 
+        font-family: system-ui, -apple-system, sans-serif; 
+        width: 100%; 
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      
+      .extopp-card { 
+        border: 1px solid #e0e0e0; 
+        border-radius: 12px; 
+        padding: 1.5rem;
+        margin-bottom: 1.5rem; 
+        background: #ffffff;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        transition: box-shadow 0.2s ease, transform 0.2s ease;
+      }
+      
+      .extopp-card:hover {
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+        transform: translateY(-2px);
+      }
+      
+      .extopp-card h2 { 
+        font-size: 1.35rem; 
+        margin: 0 0 0.5rem; 
+        color: #1a1a1a;
+        font-weight: 600;
+      }
+      
+      .extopp-card p { 
+        margin: 0.4rem 0; 
+        font-size: 0.95rem; 
+        color: #555; 
+        line-height: 1.5; 
+      }
+      
+      .extopp-card a { 
+        display: inline-block; 
+        margin-top: 0.75rem; 
+        padding: 0.5rem 1.25rem;
+        background: #0066cc;
+        color: white;
+        text-decoration: none;
+        font-weight: 500;
+        border-radius: 6px;
+        transition: background 0.2s ease;
+      }
+      
+      .extopp-card a:hover { 
+        background: #0052a3;
+        text-decoration: none;
+      }
      
-
       .extopp-header {
-  margin-bottom: 1rem;
-}
+        margin-bottom: 1rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid #f0f0f0;
+      }
 
-.extopp-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-top: 0.25rem;
-}
+      .extopp-meta {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-top: 0.5rem;
+      }
 
-.extopp-avatar img {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 1.5px solid #ccc;
-}
+      .extopp-avatar img {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #e0e0e0;
+      }
 
-.poster-name {
-  margin: 0;
-  font-size: 0.95rem;
-}
-
-
+      .poster-name {
+        margin: 0;
+        font-size: 0.9rem;
+        color: #666;
+      }
     `;
     document.head.appendChild(style);
   };
 
   /*───────────────────────────────────
-   *  CARD RENDERING
+   * CARD RENDERING (UNCHANGED)
    *───────────────────────────────────*/
   const renderCard = (opp) => {
-  const card = document.createElement('div');
-  card.className = 'extopp-card';
+    const card = document.createElement('div');
+    card.className = 'extopp-card';
 
-  const title     = opp['Job/Opportunity Title'] || 'Untitled Opportunity';
-  const poster    = opp['Posted By (Name)'] || 'Unknown';
-  const skills    = opp['Skills/Major Required'] || '—';
-  const pay       = opp['Compensation Type'] || '—';
-  const weeks     = opp['Duration (Number of Weeks)'] || '—';
-  const wType     = opp['Work Type'] || '—';
-  const start     = opp['Start Date'] || '?';
-  const end       = opp['End Date'] || '?';
-  const link      = opp['Please attach the relevant job description'] || '';
-  const longDesc  = opp['Please attach the relevant job description'] || '';
+    // Map the field names from the API response
+    const title     = opp['opportunityTitle'] || 'Untitled Opportunity'; 
+    const orgName   = opp['orgName'] || 'Unknown Organization';
+    const poster    = opp['responderEmail'] || 'Unknown'; 
+    const skills    = opp['elibigilityRestrictions'] || '—'; 
+    const pay       = opp['compensationType'] || '—';
+    const wType     = opp['workArrangement'] || '—';
+    const duration  = opp['duration'] || '—'; 
+    const deadline  = opp['deadline'] || '?';
+    const link      = opp['toApply'] || ''; // Application Link
+    
+    // Attempt to format startDate (it comes as a JS Date object converted to a string in the API)
+    const startDateRaw = opp['startDate'];
+    let startDisplay = '?';
+    if (startDateRaw) {
+      try {
+        startDisplay = new Date(startDateRaw).toLocaleDateString();
+      } catch (e) {
+        startDisplay = startDateRaw;
+      }
+    }
+    
+    // Use the description fields, merged by the Apps Script
+    const longDesc = opp['jdText'] || opp['additionalDetails'] || 'No description provided.'; 
 
-  const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(poster)}&background=random&size=128&bold=true`;
+    // Generate a name from the email for the avatar/poster display
+    const posterName = poster.split('@')[0].split('.').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
+    const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(posterName)}&background=random&size=128&bold=true`;
 
-  card.innerHTML = `
-    <div class="extopp-header">
-  <h2>${title}</h2>
-  <div class="extopp-meta">
-    <div class="extopp-avatar">
-      <img src="${avatarUrl}" alt="Avatar of ${poster}" />
-    </div>
-    <p class="poster-name"><strong>Posted By:</strong> ${poster}</p>
-  </div>
-</div>
+    card.innerHTML = `
+      <div class="extopp-header">
+        <h2>${title}</h2>
+        <p style="margin:0.25rem 0 0.5rem; color:#666; font-size:0.95rem;"><strong>Organization:</strong> ${orgName}</p>
+        <div class="extopp-meta">
+          <div class="extopp-avatar">
+            <img src="${avatarUrl}" alt="Avatar of ${posterName}" />
+          </div>
+          <p class="poster-name"><strong>Posted By:</strong> ${posterName}</p>
+        </div>
+      </div>
 
+      <p><strong>Eligibility/Skills:</strong> ${skills}</p>
+      <p><strong>Compensation:</strong> ${pay}</p>
+      <p><strong>Work Arrangement:</strong> ${wType}</p>
+      <p><strong>Duration:</strong> ${duration}</p>
+      <p><strong>Start Date:</strong> ${startDisplay}</p>
+      <p><strong>Deadline:</strong> ${deadline}</p>
 
-    <p><strong>Skills:</strong> ${skills}</p>
-    <p><strong>Compensation:</strong> ${pay}</p>
-    <p><strong>Work Type:</strong> ${wType}</p>
-    <p><strong>Duration:</strong> ${weeks} weeks</p>
-    <p><strong>Dates:</strong> ${start} → ${end}</p>
+      ${longDesc ? `<p style="margin-top:0.75rem;"><strong>Description:</strong><br>${longDesc}</p>` : ''}
+      ${link ? `<a href="${link}" target="_blank" rel="noopener">Apply Now →</a>` : ''}
+    `;
 
-    ${longDesc ? `<p style="margin-top:0.75rem;"><strong>Description:</strong><br>${longDesc}</p>` : ''}
-    ${link && !longDesc.includes('http') ? `<a href="${link}" target="_blank" rel="noopener">Learn more →</a>` : ''}
-  `;
-
-  return card;
-};
+    return card;
+  };
 
 
   const populateOpportunities = async () => {
@@ -145,7 +225,7 @@
     const opps = await fetchOpportunities();
 
     if (!opps.length) {
-      container.innerHTML = '<p style="color:red;">No opportunities found.</p>';
+      container.innerHTML = '<p style="color:red;">No opportunities found or failed to load data (check background console).</p>';
       return;
     }
 
@@ -154,7 +234,7 @@
   };
 
   /*───────────────────────────────────
-   *  SHOW / HIDE CUSTOM DIV
+   * SHOW / HIDE CUSTOM DIV (UNCHANGED)
    *───────────────────────────────────*/
   const showCustomDiv = () => {
     const main = document.querySelector('main');
@@ -182,7 +262,7 @@
   };
 
   /*───────────────────────────────────
-   *  NAV STATE HELPERS
+   * NAV STATE HELPERS (UNCHANGED)
    *───────────────────────────────────*/
   const updateActiveFromUrl = () => {
     document
@@ -204,7 +284,7 @@
       .forEach(div => div.classList.remove('active'));
 
     clickedLi.querySelector('.MuiListItemIcon-root')?.classList.add('active');
-    hideCustomDiv();                       // Hide when navigating elsewhere
+    hideCustomDiv();                       
   };
 
   const attachClickListeners = () => {
@@ -217,16 +297,16 @@
   };
 
   /*───────────────────────────────────
-   *  SIDEBAR INJECTION
+   * SIDEBAR INJECTION (UNCHANGED)
    *───────────────────────────────────*/
   const injectSidebarItem = (menu) => {
     if (document.getElementById(ITEM_ID)) return;
 
     const li = document.createElement('li');
     li.id = ITEM_ID;
-    li.className = 'MuiListItem-root MuiListItem-gutters MuiListItem-padding css-8s6ur9';
+    li.className = 'MuiListItem-root MuiListItem-gutters MuiListItem-padding css-1oy62c2';
     li.innerHTML = `
-      <div id="${NAV_DIV_ID}" class="MuiListItemIcon-root css-harqlm" style="cursor:pointer">
+      <div id="${NAV_DIV_ID}" class="MuiListItemIcon-root css-g1kwld" style="cursor:pointer">
         <i class="fi fi-rr-globe text-base"></i>
         <p class="!text-center !text-xs !max-w-[75px] !break-words !pt-0.5 text-dark">
           External Opportunities
@@ -235,11 +315,11 @@
     `;
     li.addEventListener('click', e => {
       e.preventDefault();
-      window.location.href = TARGET_URL;   // hard‑reload for reliability
+      window.location.href = TARGET_URL;   
     });
 
     menu.children.length >= 2
-      ? menu.insertBefore(li, menu.children[2])  // 3rd item
+      ? menu.insertBefore(li, menu.children[2]) 
       : menu.appendChild(li);
 
     attachClickListeners();
@@ -247,7 +327,7 @@
   };
 
   /*───────────────────────────────────
-   *  BOOTSTRAP
+   * BOOTSTRAP (UNCHANGED)
    *───────────────────────────────────*/
   const waitForSidebar = () => {
     const menu = document.querySelector(MENU_SELECTOR);
