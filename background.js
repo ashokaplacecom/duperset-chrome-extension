@@ -3,8 +3,8 @@ let popupWindow2Id = null;
 
 // --- CONFIGURATION (API details stored here) ---
 const API_ENDPOINT_URL = 'https://script.google.com/macros/s/AKfycbyCTOnOEHUVqRNvd3EeNNCpA00YgZNOFvuzoyzydp6aAIBwm-mkdA71HbDmfOGtKkE6/exec';
-const API_KEY          = 'ibrahimdoesnotknowcoding';
-const API_PARAMS       = `apiKey=${API_KEY}&days=7&redirect=false`;
+const API_KEY = 'ibrahimdoesnotknowcoding';
+const API_PARAMS = `apiKey=${API_KEY}&days=10&redirect=false`;
 
 /**
  * Unified message listener for all content script messages.
@@ -25,7 +25,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
         return false;
     }
-    
+
     if (message.action === "majorMinorPopup") {
         chrome.windows.create({
             url: chrome.runtime.getURL("major-minor.html"),
@@ -37,12 +37,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
         return false;
     }
-    
+
     if (message.action === "fetchOpportunities") {
         console.log('[Background] Fetching opportunities from Apps Script API');
         fetchDataFromAppsScript(sendResponse);
         // Returning true is necessary for asynchronous response
-        return true; 
+        return true;
     }
 });
 
@@ -53,15 +53,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 async function fetchDataFromAppsScript(sendResponse) {
     const fullUrl = `${API_ENDPOINT_URL}?${API_PARAMS}`;
     console.log('[Background] Fetching from:', fullUrl);
-    
+
     try {
-        const res = await fetch(fullUrl, {credentials: 'omit'});
-        
+        const res = await fetch(fullUrl, { credentials: 'omit' });
+
         if (!res.ok) {
             throw new Error(`API request failed with status ${res.status}`);
         }
-        
-        const data = await res.json(); 
+
+        const data = await res.json();
         console.log('[Background] Successfully fetched opportunities:', data.length, 'items');
 
         // The API returns an array directly
