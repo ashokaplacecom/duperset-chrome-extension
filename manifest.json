@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Duperset Dev",
-  "version": "2.2",
+  "version": "2.4",
   "description": "An extension to enhance Superset functionality for Ashoka University's internal use by students for placement processes.",
   "permissions": [],
   "host_permissions": [

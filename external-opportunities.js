@@ -145,11 +145,41 @@
         padding: 1rem;
         border-bottom: 2px solid #3B32B3;
         background: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
       }
       .extopp-sidebar-header h3 {
         margin: 0;
         color: #3B32B3;
         font-size: 1.1rem;
+      }
+
+      /* Loader Indicator */
+      .extopp-refresh-indicator {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.75rem;
+        color: #666;
+        padding: 0.25rem 0.5rem;
+        background: #f0f4ff;
+        border-radius: 4px;
+        border: 1px solid #dbeafe;
+      }
+      .extopp-refresh-indicator.hidden {
+        display: none;
+      }
+      .extopp-spinner {
+        width: 12px;
+        height: 12px;
+        border: 2px solid #e0e0e0;
+        border-top-color: #3B32B3;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
       }
 
       .extopp-list-wrapper {
@@ -357,12 +387,16 @@
       <div class="extopp-sidebar">
         <div class="extopp-sidebar-header">
            <h3>All Opportunities</h3>
+           <div class="extopp-refresh-indicator hidden" id="extopp-refresh-indicator">
+             <div class="extopp-spinner"></div>
+             <span>Fetching Latest Opportunities...</span>
+           </div>
         </div>
         <div class="extopp-list-wrapper">
             <ul class="extopp-list" id="extopp-list"></ul>
         </div>
         <div class="extopp-sidebar-footer" id="extopp-load-more-container" style="display:none;">
-            <button class="load-more-btn" id="extopp-load-more-btn">Load More Jobs</button>
+            <button class="load-more-btn" id="extopp-load-more-btn">Load More Opportunities</button>
         </div>
       </div>
       <div class="extopp-detail-view" id="extopp-detail">
@@ -533,7 +567,18 @@
     }
 
     // 2. Fetch fresh data
+    // Show loader if we have cached data (optimistic UI scenario)
+    const refreshIndicator = document.getElementById('extopp-refresh-indicator');
+    if (allOpps.length > 0 && refreshIndicator) {
+      refreshIndicator.classList.remove('hidden');
+    }
+
     const freshOpps = await fetchFromNetwork();
+
+    // Hide loader
+    if (refreshIndicator) {
+      refreshIndicator.classList.add('hidden');
+    }
 
     if (freshOpps) {
       allOpps = freshOpps;
