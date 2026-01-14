@@ -17,11 +17,11 @@ function sendOTP(email) {
     },
     body: params.toString()
   })
-  .then(res => res.json())
-  .catch(err => {
-    console.error("sendOTP fetch error:", err);
-    return { success: false, message: "Network error" };
-  });
+    .then(res => res.json())
+    .catch(err => {
+      console.error("sendOTP fetch error:", err);
+      return { success: false, message: "Network error" };
+    });
 }
 
 function verifyOTP(email, otp, message) {
@@ -40,11 +40,11 @@ function verifyOTP(email, otp, message) {
     },
     body: params.toString()
   })
-  .then(res => res.json())
-  .catch(err => {
-    console.error("verifyOTP fetch error:", err);
-    return { success: false, message: "Network error" };
-  });
+    .then(res => res.json())
+    .catch(err => {
+      console.error("verifyOTP fetch error:", err);
+      return { success: false, message: "Network error" };
+    });
 }
 
 
@@ -91,7 +91,7 @@ function injectSidebar() {
   sidebar.appendChild(closeBtn);
 
   // Sidebar content
-   let contentHTML = `
+  let contentHTML = `
         <div id="chrome-extension-title">
             <h2 id="chrome-extension-h2">Duperset</h2>
         </div>
@@ -99,18 +99,18 @@ function injectSidebar() {
         <p id="chrome-extension-branding">Brought to you by <strong>Placecom</strong></p>
         <a href="#" id="verify-button" class="duperset-button">Verify My Profile</a>
         <a href="#" id="major-minor-button" class="duperset-button">Request Major Minor Change</a>
+        <a href="/students/external-opportunities" class="duperset-button">External Opportunities</a>
         <br />
         <hr style="border: 0; height: 1px; background: #3B32B3; margin: 10px 0;" />
         <br />
         <p id="chrome-extension-branding">Coming Soon</p>
         <a href="#" class="duperset-button">Deadline Calendar</a>
         <a href="#" class="duperset-button">FAQs</a>
-        <a href="#" class="duperset-button">External Opportunities</a>
         `
     ;
-    let contentDiv = document.createElement("div");
-    contentDiv.innerHTML = contentHTML;
-    sidebar.appendChild(contentDiv);
+  let contentDiv = document.createElement("div");
+  contentDiv.innerHTML = contentHTML;
+  sidebar.appendChild(contentDiv);
 
   document.body.appendChild(sidebar);
 
@@ -145,20 +145,20 @@ function injectSidebar() {
 
   // ==================== MODAL 1 – Verify My Profile ====================
   // Modal 1 - Verify My Profile
-let modal1 = document.createElement("div");
-modal1.classList.add("modal-overlay");
-modal1.id = "modal1";
+  let modal1 = document.createElement("div");
+  modal1.classList.add("modal-overlay");
+  modal1.id = "modal1";
 
-let modal1Content = document.createElement("div");
-modal1Content.classList.add("modal-content");
+  let modal1Content = document.createElement("div");
+  modal1Content.classList.add("modal-content");
 
-// Close button
-let closeBtn1 = document.createElement("button");
-closeBtn1.className = "modal-close-btn";
-closeBtn1.innerHTML = "✖";
-closeBtn1.addEventListener("click", () => closeModal(modal1));
+  // Close button
+  let closeBtn1 = document.createElement("button");
+  closeBtn1.className = "modal-close-btn";
+  closeBtn1.innerHTML = "✖";
+  closeBtn1.addEventListener("click", () => closeModal(modal1));
 
-modal1Content.innerHTML = `
+  modal1Content.innerHTML = `
 <div class="verify-modal">
   <h1 class="modal-title">Verify Your Email</h1>
   <div id="verify-message"></div>
@@ -180,113 +180,113 @@ modal1Content.innerHTML = `
   </div>
 `;
 
-modal1.appendChild(modal1Content);
-document.body.appendChild(modal1);
-modal1Content.appendChild(closeBtn1);
+  modal1.appendChild(modal1Content);
+  document.body.appendChild(modal1);
+  modal1Content.appendChild(closeBtn1);
 
 
 
 
-let currentVerifyEmail = "";
-function showVerifyStep(stepId) {
-  ["emailStep", "otpStep"].forEach(id => {
-    document.getElementById(id).style.display = (id === stepId ? "block" : "none");
-  });
-}
-
-function setVerifyMessage(msg, type) {
-  const div = document.getElementById("verify-message");
-  div.innerHTML = msg;
-  div.className = type;
-}
-
-function disableBtn(btn, text) {
-  btn.disabled = true;
-  btn.innerText = text;
-}
-
-function enableBtn(btn, text) {
-  btn.disabled = false;
-  btn.innerText = text;
-}
-
-document.getElementById("otpBtn").onclick = () => {
-  const email = document.getElementById("verify-email").value;
-  const btn = document.getElementById("otpBtn");
-  if (!email || !email.includes("@")) {
-    setVerifyMessage("Please enter a valid email", "error");
-    return;
+  let currentVerifyEmail = "";
+  function showVerifyStep(stepId) {
+    ["emailStep", "otpStep"].forEach(id => {
+      document.getElementById(id).style.display = (id === stepId ? "block" : "none");
+    });
   }
 
-  disableBtn(btn, "Sending...");
-
-  sendOTP(email).then(res => {
-    if (res.success) {
-      currentVerifyEmail = email;
-      showVerifyStep("otpStep");
-      setVerifyMessage("OTP sent to your email", "success");
-    } else {
-      setVerifyMessage(res.message || "Failed to send OTP", "error");
-    }
-    enableBtn(btn, "Send OTP");
-  }).catch(() => {
-    setVerifyMessage("Failed to connect", "error");
-    enableBtn(btn, "Send OTP");
-  });
-};
-
-document.getElementById("verifyBtn").onclick = () => {
-  const otp = document.getElementById("verify-otp").value;
-  const message = document.getElementById("verify-message-box").value;
-  const btn = document.getElementById("verifyBtn");
-
-  if (!otp || otp.length !== 4) {
-    setVerifyMessage("Please enter a valid 4-digit OTP", "error");
-    return;
+  function setVerifyMessage(msg, type) {
+    const div = document.getElementById("verify-message");
+    div.innerHTML = msg;
+    div.className = type;
   }
 
-  disableBtn(btn, "Verifying...");
+  function disableBtn(btn, text) {
+    btn.disabled = true;
+    btn.innerText = text;
+  }
 
-  verifyOTP(currentVerifyEmail, otp, message).then(res => {
-    if (res.success) {
-      setVerifyMessage(res.message || "Verified successfully!", "success-submitted");
+  function enableBtn(btn, text) {
+    btn.disabled = false;
+    btn.innerText = text;
+  }
 
-      // Keep button disabled and close modal after delay
-      setTimeout(() => {
-        document.getElementById("verify-email").value = "";
-        document.getElementById("verify-otp").value = "";
-        document.getElementById("verify-message-box").value = "";
-        showVerifyStep("emailStep");
-        document.getElementById("modal1").style.display = "none";
-      }, 3000);
-    } else {
-      setVerifyMessage(res.message || "Verification failed", "error");
-      enableBtn(btn, "Verify & Submit");  // re-enable only on failure
+  document.getElementById("otpBtn").onclick = () => {
+    const email = document.getElementById("verify-email").value;
+    const btn = document.getElementById("otpBtn");
+    if (!email || !email.includes("@")) {
+      setVerifyMessage("Please enter a valid email", "error");
+      return;
     }
-  }).catch(() => {
-    setVerifyMessage("Failed to connect", "error");
-    enableBtn(btn, "Verify & Submit");
-  });
-};
 
-document.getElementById("resendLink").onclick = () => {
-  const btn = document.getElementById("resendLink");
-  if (!currentVerifyEmail) return;
-  btn.innerText = "Sending...";
-  sendOTP(currentVerifyEmail).then(res => {
-    setVerifyMessage(res.success ? "OTP resent" : res.message, res.success ? "success" : "error");
-    btn.innerText = "Didn’t get OTP? Resend";
-  }).catch(() => {
-    setVerifyMessage("Failed to resend OTP", "error");
-    btn.innerText = "Didn’t get OTP? Resend";
-  });
-};
+    disableBtn(btn, "Sending...");
+
+    sendOTP(email).then(res => {
+      if (res.success) {
+        currentVerifyEmail = email;
+        showVerifyStep("otpStep");
+        setVerifyMessage("OTP sent to your email", "success");
+      } else {
+        setVerifyMessage(res.message || "Failed to send OTP", "error");
+      }
+      enableBtn(btn, "Send OTP");
+    }).catch(() => {
+      setVerifyMessage("Failed to connect", "error");
+      enableBtn(btn, "Send OTP");
+    });
+  };
+
+  document.getElementById("verifyBtn").onclick = () => {
+    const otp = document.getElementById("verify-otp").value;
+    const message = document.getElementById("verify-message-box").value;
+    const btn = document.getElementById("verifyBtn");
+
+    if (!otp || otp.length !== 4) {
+      setVerifyMessage("Please enter a valid 4-digit OTP", "error");
+      return;
+    }
+
+    disableBtn(btn, "Verifying...");
+
+    verifyOTP(currentVerifyEmail, otp, message).then(res => {
+      if (res.success) {
+        setVerifyMessage(res.message || "Verified successfully!", "success-submitted");
+
+        // Keep button disabled and close modal after delay
+        setTimeout(() => {
+          document.getElementById("verify-email").value = "";
+          document.getElementById("verify-otp").value = "";
+          document.getElementById("verify-message-box").value = "";
+          showVerifyStep("emailStep");
+          document.getElementById("modal1").style.display = "none";
+        }, 3000);
+      } else {
+        setVerifyMessage(res.message || "Verification failed", "error");
+        enableBtn(btn, "Verify & Submit");  // re-enable only on failure
+      }
+    }).catch(() => {
+      setVerifyMessage("Failed to connect", "error");
+      enableBtn(btn, "Verify & Submit");
+    });
+  };
+
+  document.getElementById("resendLink").onclick = () => {
+    const btn = document.getElementById("resendLink");
+    if (!currentVerifyEmail) return;
+    btn.innerText = "Sending...";
+    sendOTP(currentVerifyEmail).then(res => {
+      setVerifyMessage(res.success ? "OTP resent" : res.message, res.success ? "success" : "error");
+      btn.innerText = "Didn’t get OTP? Resend";
+    }).catch(() => {
+      setVerifyMessage("Failed to resend OTP", "error");
+      btn.innerText = "Didn’t get OTP? Resend";
+    });
+  };
 
 
-// ==================== END MODAL 1 ====================
+  // ==================== END MODAL 1 ====================
 
 
-  
+
   // ==================== MODAL 2 – Major/Minor Change ====================
   let modal2 = document.createElement("div");
   modal2.classList.add("modal-overlay");
@@ -332,7 +332,7 @@ document.getElementById("resendLink").onclick = () => {
 
   // ===== STYLES =====
   let style = document.createElement("style");
- style.innerHTML = `
+  style.innerHTML = `
   /* Main button: subtle, calm, but polished */
   .duperset-button {
     display: block;
@@ -383,7 +383,7 @@ document.getElementById("resendLink").onclick = () => {
   }
 
   #chrome-extension-branding::after {
-    content: " • v2 is live";
+    content: " • v3 is live";
     color: rgb(101, 84, 233);
     font-style: normal;
     font-weight: 500;

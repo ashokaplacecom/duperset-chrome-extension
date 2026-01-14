@@ -147,7 +147,7 @@
       }
 
       .extopp-disclaimer {
-        background: #3B32B3;
+        background: #143a5e;
         border: 1px solid #2a2391;
         color: #ffffff;
         padding: 0.75rem 1.25rem;
@@ -159,6 +159,7 @@
         font-weight: 500;
         box-shadow: 0 2px 8px rgba(59, 50, 179, 0.2);
         flex-shrink: 0;
+        opacity: 80%;
       }
       .extopp-disclaimer i {
         color: #ffffff;
@@ -268,7 +269,7 @@
         font-weight: 600;
       }
       .extopp-item-deadline.rolling { color: #d9534f; background: #fff0f0; border: 1px solid #ffdada; }
-      .extopp-item-deadline.unknown { color: #666; background: #f0f0f0; border: 1px solid #e0e0e0; }
+      .extopp-item-deadline.unknown { color: #666; background: #e3eaf0ff; border: 1px solid rgba(123, 161, 196, 1); }
       .extopp-item-deadline.date { color: #856404; background: #fff3cd; border: 1px solid #ffeeba; }
 
       /* Load More Footer */
@@ -337,7 +338,7 @@
         gap: 0.5rem;
       }
       .extopp-deadline-banner.rolling { background: #fff0f0; border: 1px solid #ffdada; color: #d9534f; }
-      .extopp-deadline-banner.unknown { background: #f5f5f5; border: 1px solid #e0e0e0; color: #666; }
+      .extopp-deadline-banner.unknown { background: #e3eaf0ff; border: 1px solid rgba(123, 161, 196, 1); color: #666; }
       .extopp-deadline-banner.date { background: #fff3cd; border: 1px solid #ffeeba; color: #856404; }
 
       .extopp-actions {
@@ -429,7 +430,7 @@
     container.innerHTML = `
       <div class="extopp-disclaimer">
         <i class="fi fi-rr-exclamation-octagon"></i>
-        <span>External Opportunities are sourced from Ashoka Email IDs, but not verified by Placecom or CDO. Use at your own risk.</span>
+        <span><b>Disclaimer:</b> The opportunities listed below are shared via Ashoka email IDs and are not verified by the Placement Committee or the CDO. Students are advised to exercise discretion before applying.</span>
       </div>
       <div class="extopp-main-wrapper">
         <div class="extopp-sidebar">
