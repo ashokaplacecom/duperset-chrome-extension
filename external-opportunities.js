@@ -27,26 +27,41 @@
   };
 
   const normalizeOpportunity = (raw) => {
-    const formatDeadline = (d) => {
-      if (!d) return 'Not Specified';
+    const processDeadline = (d) => {
+      if (!d || d === 'Not Specified') return { text: 'Unknown', type: 'unknown' };
+      const dLower = d.toLowerCase();
+      if (dLower.includes('rolling')) return { text: 'Rolling', type: 'rolling' };
+
       try {
         const date = new Date(d);
-        if (isNaN(date.getTime())) return d;
-        return date.toLocaleDateString(undefined, {
-          weekday: 'long', year: 'numeric', month: 'long',
-          day: 'numeric', hour: '2-digit', minute: '2-digit'
-        });
-      } catch (e) { return d; }
+        if (isNaN(date.getTime())) return { text: d, type: 'unknown' };
+
+        // Requirements: Date based deadlines should show the date rather than the day.
+        // removing 'weekday' from the format
+        return {
+          text: date.toLocaleDateString(undefined, {
+            year: 'numeric', month: 'long',
+            day: 'numeric', hour: '2-digit', minute: '2-digit'
+          }),
+          type: 'date'
+        };
+      } catch (e) {
+        return { text: d, type: 'unknown' };
+      }
     };
+
+    const dl = processDeadline(raw['deadline']);
 
     return {
       id: raw.id || Math.random().toString(36).substr(2, 9),
       title: safeGet(raw, 'opportunityTitle', 'Untitled Role'),
       orgName: safeGet(raw, 'orgName', 'Unknown Organization'),
       location: safeGet(raw, 'location', 'Remote/Unspecified'),
-      deadline: formatDeadline(raw['deadline']),
+      opportunityType: safeGet(raw, 'opportunityType', 'Not Specified'),
+      deadline: dl.text,
+      deadlineType: dl.type,
       deadlineRaw: raw['deadline'],
-      postedDate: formatDeadline(raw['startDate']),
+      postedDate: raw['startDate'],
 
       skills: safeGet(raw, 'elibigilityRestrictions', 'Not Specified'),
       compensation: safeGet(raw, 'compensationType', 'Not Specified'),
@@ -126,7 +141,33 @@
         font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         background: #f4f6f8;
         display: flex;
+        flex-direction: column;
         gap: 1rem;
+        overflow: hidden;
+      }
+
+      .extopp-disclaimer {
+        background: #3B32B3;
+        border: 1px solid #2a2391;
+        color: #ffffff;
+        padding: 0.75rem 1.25rem;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-weight: 500;
+        box-shadow: 0 2px 8px rgba(59, 50, 179, 0.2);
+        flex-shrink: 0;
+      }
+      .extopp-disclaimer i {
+        color: #ffffff;
+      }
+
+      .extopp-main-wrapper {
+        display: flex;
+        gap: 1rem;
+        flex: 1;
         overflow: hidden;
       }
 
@@ -221,12 +262,14 @@
       }
       .extopp-item-deadline {
         font-size: 0.8rem;
-        color: #d9534f;
-        background: #fff0f0;
         display: inline-block;
         padding: 2px 6px;
         border-radius: 4px;
+        font-weight: 600;
       }
+      .extopp-item-deadline.rolling { color: #d9534f; background: #fff0f0; border: 1px solid #ffdada; }
+      .extopp-item-deadline.unknown { color: #666; background: #f0f0f0; border: 1px solid #e0e0e0; }
+      .extopp-item-deadline.date { color: #856404; background: #fff3cd; border: 1px solid #ffeeba; }
 
       /* Load More Footer */
       .extopp-sidebar-footer {
@@ -287,15 +330,15 @@
       .extopp-deadline-banner {
         margin-top: 1rem;
         padding: 0.75rem;
-        background: #f0f4ff;
-        border: 1px solid #dbeafe;
         border-radius: 6px;
-        color: #1e40af;
         font-size: 0.9rem;
         display: flex;
         align-items: center;
         gap: 0.5rem;
       }
+      .extopp-deadline-banner.rolling { background: #fff0f0; border: 1px solid #ffdada; color: #d9534f; }
+      .extopp-deadline-banner.unknown { background: #f5f5f5; border: 1px solid #e0e0e0; color: #666; }
+      .extopp-deadline-banner.date { background: #fff3cd; border: 1px solid #ffeeba; color: #856404; }
 
       .extopp-actions {
         display: flex;
@@ -384,23 +427,29 @@
 
   const renderLayout = (container) => {
     container.innerHTML = `
-      <div class="extopp-sidebar">
-        <div class="extopp-sidebar-header">
-           <h3>All Opportunities</h3>
-           <div class="extopp-refresh-indicator hidden" id="extopp-refresh-indicator">
-             <div class="extopp-spinner"></div>
-             <span>Fetching Latest Opportunities...</span>
-           </div>
-        </div>
-        <div class="extopp-list-wrapper">
-            <ul class="extopp-list" id="extopp-list"></ul>
-        </div>
-        <div class="extopp-sidebar-footer" id="extopp-load-more-container" style="display:none;">
-            <button class="load-more-btn" id="extopp-load-more-btn">Load More Opportunities</button>
-        </div>
+      <div class="extopp-disclaimer">
+        <i class="fi fi-rr-exclamation-octagon"></i>
+        <span>External Opportunities are sourced from Ashoka Email IDs, but not verified by Placecom or CDO. Use at your own risk.</span>
       </div>
-      <div class="extopp-detail-view" id="extopp-detail">
-        <div class="empty-state">Select an opportunity to view details</div>
+      <div class="extopp-main-wrapper">
+        <div class="extopp-sidebar">
+          <div class="extopp-sidebar-header">
+             <h3>All Opportunities</h3>
+             <div class="extopp-refresh-indicator hidden" id="extopp-refresh-indicator">
+               <div class="extopp-spinner"></div>
+               <span>Fetching Latest Opportunities...</span>
+             </div>
+          </div>
+          <div class="extopp-list-wrapper">
+              <ul class="extopp-list" id="extopp-list"></ul>
+          </div>
+          <div class="extopp-sidebar-footer" id="extopp-load-more-container" style="display:none;">
+              <button class="load-more-btn" id="extopp-load-more-btn">Load More Opportunities</button>
+          </div>
+        </div>
+        <div class="extopp-detail-view" id="extopp-detail">
+          <div class="empty-state">Select an opportunity to view details</div>
+        </div>
       </div>
     `;
   };
@@ -413,7 +462,7 @@
     li.innerHTML = `
       <div class="extopp-item-title">${opp.title}</div>
       <div class="extopp-item-org">${opp.orgName}</div>
-      ${opp.deadlineRaw ? `<div class="extopp-item-deadline">Deadline: ${opp.deadline.split(',')[0]}</div>` : ''}
+      ${opp.deadlineRaw ? `<div class="extopp-item-deadline ${opp.deadlineType}">Deadline: ${opp.deadline.split(',')[0]}</div>` : ''}
     `;
 
     return li;
@@ -442,9 +491,9 @@
       <div class="extopp-detail-header">
         <div class="extopp-detail-header-info">
             <h1>${opp.title}</h1>
-            <h2>${opp.orgName} • ${opp.location || 'Location Not Specified'}</h2>
+            <h2>${opp.orgName} • ${opp.opportunityType} • ${opp.location || 'Location Not Specified'}</h2>
             
-             <div class="extopp-deadline-banner">
+             <div class="extopp-deadline-banner ${opp.deadlineType}">
                 <i class="fi fi-rr-clock"></i>
                 <span>Applications close on <strong>${opp.deadline}</strong></span>
             </div>
@@ -458,7 +507,11 @@
         <h3>Overview</h3>
         <div class="overview-grid">
             <div class="overview-item">
-                <label>Category</label>
+                <label>Opportunity Type</label>
+                <span>${opp.opportunityType}</span>
+            </div>
+            <div class="overview-item">
+                <label>Category (Arrangement)</label>
                 <span>${opp.workArrangement}</span>
             </div>
             <div class="overview-item">
