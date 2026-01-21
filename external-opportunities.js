@@ -520,7 +520,7 @@
                 <span>${opp.compensation}</span>
             </div>
             <div class="overview-item">
-                <label>Duration</label>
+                <label>Duration (weeks)</label>
                 <span>${opp.duration}</span>
             </div>
             <div class="overview-item">
