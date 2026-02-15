@@ -301,7 +301,7 @@ function injectSidebar() {
   closeBtn2.addEventListener("click", () => closeModal(modal2));
 
   let iframe2 = document.createElement("iframe");
-  iframe2.src = "https://script.google.com/macros/s/AKfycbzy6oo0GFxrQVH_ouol-NyuUV-S6MRvUvxVZ0y1HBWFz1l3murt2s1FbPplsc47EfW1oQ/exec";
+  iframe2.src = "https://script.google.com/macros/s/AKfycbwoJbYG__QxzL8YuFDmYGfAE0yU9sA--C_kQU6rDsJlVO3iSIvreYSTL-vx7zY6x61wMA/exec";
   iframe2.className = "modal-iframe";
 
   modal2Content.appendChild(closeBtn2);

@@ -4,7 +4,7 @@ let popupWindow2Id = null;
 // --- CONFIGURATION (API details stored here) ---
 const API_ENDPOINT_URL = 'https://script.google.com/macros/s/AKfycbyCTOnOEHUVqRNvd3EeNNCpA00YgZNOFvuzoyzydp6aAIBwm-mkdA71HbDmfOGtKkE6/exec';
 const API_KEY = 'ibrahimdoesnotknowcoding';
-const API_PARAMS = `apiKey=${API_KEY}&days=10&redirect=false`;
+const API_PARAMS = `apiKey=${API_KEY}&redirect=false`;
 
 /**
  * Unified message listener for all content script messages.
