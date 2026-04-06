@@ -73,8 +73,8 @@
       applyLink: raw['toApply'] || null,
       jdLink: raw['jdLink'] || null,
 
-      posterName: safeGet(raw, 'responderEmail', 'Anonymous').split('@')[0],
-      posterEmail: safeGet(raw, 'responderEmail', '')
+      posterName: safeGet(raw, 'posterEmail', 'Anonymous').split('@')[0],
+      posterEmail: safeGet(raw, 'posterEmail', '')
     };
   };
 
