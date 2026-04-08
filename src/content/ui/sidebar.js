@@ -138,6 +138,34 @@ export function createSidebar({ onVerifyClick, onMajorMinorClick }) {
     onMajorMinorClick?.();
   });
 
+  // Inject button styles
+  if (!document.getElementById("duperset-sidebar-styles")) {
+    const style = document.createElement("style");
+    style.id = "duperset-sidebar-styles";
+    style.textContent = `
+      .duperset-btn {
+        display: block;
+        width: 100%;
+        background: #f4f5ff;
+        color: #2e2b91;
+        padding: 12px 20px;
+        margin: 12px 0;
+        border-radius: 10px;
+        font-size: 15px;
+        font-weight: 600;
+        text-align: center;
+        border: 1px solid rgba(46, 43, 145, 0.2);
+        cursor: pointer;
+        transition: background 0.2s;
+        box-sizing: border-box;
+      }
+      .duperset-btn:hover {
+        background: #e8e9ff;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
   // ==================== PUBLIC API ====================
   return api;
 }
