@@ -1,74 +1,7 @@
 import React, { useState } from "react";
 import { getVerificationStatus, getMajorMinorStatus } from "../api/client";
 
-/* ─── Constants ─── */
-const S = {
-  overlay: {
-    position: "fixed", top: 0, left: 0, width: "100%", height: "100%",
-    background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)",
-    display: "flex", justifyContent: "center", alignItems: "center",
-    zIndex: 10000, fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
-  },
-  card: {
-    background: "#fff", borderRadius: 16, width: 420, maxWidth: "calc(100vw - 32px)",
-    boxShadow: "0 20px 50px rgba(0,0,0,0.18)", overflow: "hidden", position: "relative",
-  },
-  header: {
-    display: "flex", justifyContent: "space-between", alignItems: "flex-start",
-    padding: "24px 28px 8px",
-  },
-  title: { fontSize: 20, fontWeight: 700, color: "#111", margin: 0 },
-  desc: { fontSize: 13, color: "#6b7280", margin: "4px 0 0" },
-  closeBtn: {
-    position: "absolute", top: 14, right: 14, background: "none", border: "none",
-    fontSize: 18, cursor: "pointer", color: "#9ca3af", lineHeight: 1,
-  },
-  body: { padding: "0 28px 28px" },
-
-  label: { display: "block", fontSize: 13, fontWeight: 600, color: "#111", marginBottom: 6 },
-  input: (error) => ({
-    width: "100%", height: 46, borderRadius: 12, border: `1.5px solid ${error ? "#ef4444" : "#e5e7eb"}`,
-    padding: "0 14px", fontSize: 14, outline: "none", boxSizing: "border-box",
-    transition: "border-color 0.15s",
-  }),
-
-  btnPrimary: (disabled) => ({
-    display: "block", width: "100%", padding: "13px 0", border: "none", borderRadius: 50,
-    background: disabled ? "#8a88c0" : "#1e1b72", color: "#fff", fontSize: 15,
-    fontWeight: 700, cursor: disabled ? "not-allowed" : "pointer",
-    marginBottom: 10, transition: "background 0.15s",
-  }),
-
-  errorBox: {
-    display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 10,
-    background: "#fef2f2", border: "1px solid #fecaca", color: "#b91c1c",
-    fontSize: 13, marginBottom: 14,
-  },
-
-  /* Status specific styles */
-  statusPillWrapper: {
-    display: "flex", justifyContent: "space-between", alignItems: "flex-start",
-    marginBottom: 16, paddingBottom: 16, borderBottom: "1px solid #f3f4f6"
-  },
-  statusType: { fontSize: 15, fontWeight: 700, color: "#111" },
-  
-  statusBadge: (status) => {
-    let bg = "#fffbeb", color = "#92400e", border = "#fde68a";
-    if (status === "approved") { bg = "#ecfdf5"; color = "#065f46"; border = "#a7f3d0"; }
-    if (status === "rejected") { bg = "#fef2f2"; color = "#991b1b"; border = "#fecaca"; }
-    return {
-      fontSize: 12, fontWeight: 700, textTransform: "capitalize",
-      padding: "4px 10px", borderRadius: 6, background: bg, color: color, border: `1px solid ${border}`
-    };
-  },
-
-  row: { display: "flex", justifyContent: "space-between", marginBottom: 12 },
-  rowLabel: { fontSize: 13, color: "#6b7280" },
-  rowValue: { fontSize: 13, fontWeight: 600, color: "#111", textAlign: "right" },
-
-  emptyState: { textAlign: "center", padding: "20px 0" },
-  emptyText: { fontSize: 14, color: "#6b7280", margin: "0" },
-};
+import { S } from "./theme";
 
 export function LatestRequestModal({ visible, onClose }) {
   const [email, setEmail] = useState("");
