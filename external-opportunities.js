@@ -27,7 +27,12 @@
   };
 
   const normalizeOpportunity = (raw) => {
-    const processDeadline = (d) => {
+    /*
+     * The new REST API uses a dedicated boolean `isRolling` field.
+     * Fall back to checking the deadline string for legacy safety.
+     */
+    const processDeadline = (d, isRolling) => {
+      if (isRolling) return { text: 'Rolling', type: 'rolling' };
       if (!d || d === 'Not Specified') return { text: 'Unknown', type: 'unknown' };
       const dLower = d.toLowerCase();
       if (dLower.includes('rolling')) return { text: 'Rolling', type: 'rolling' };
@@ -50,31 +55,51 @@
       }
     };
 
-    const dl = processDeadline(raw['deadline']);
+    const dl = processDeadline(raw['deadline'], raw['isRolling']);
+
+    // Skills may be a JSON array or a comma-separated string from the API
+    const rawSkills = raw['skills'];
+    let skillsText = 'Not Specified';
+    if (Array.isArray(rawSkills) && rawSkills.length > 0) {
+      skillsText = rawSkills.join(', ');
+    } else if (typeof rawSkills === 'string' && rawSkills.trim()) {
+      skillsText = rawSkills;
+    }
+
+    // Best proxy for location is work_arrangement (Onsite / Hybrid / Remote)
+    const locationProxy = safeGet(raw, 'work_arrangement', 'Not Specified');
 
     return {
       id: raw.id || Math.random().toString(36).substr(2, 9),
-      title: safeGet(raw, 'opportunityTitle', 'Untitled Role'),
-      orgName: safeGet(raw, 'orgName', 'Unknown Organization'),
-      location: safeGet(raw, 'location', 'Remote/Unspecified'),
-      opportunityType: safeGet(raw, 'opportunityType', 'Not Specified'),
+      // ── Core identity ──────────────────────────────────────────────────────
+      title: safeGet(raw, 'title', 'Untitled Role'),
+      orgName: safeGet(raw, 'recruiting_body', 'Unknown Organization'),
+      location: locationProxy,
+      opportunityType: safeGet(raw, 'category', 'Not Specified'),
+      // ── Deadline ───────────────────────────────────────────────────────────
       deadline: dl.text,
       deadlineType: dl.type,
-      deadlineRaw: raw['deadline'],
-      postedDate: raw['startDate'],
-
-      skills: safeGet(raw, 'elibigilityRestrictions', 'Not Specified'),
-      compensation: safeGet(raw, 'compensationType', 'Not Specified'),
-      workArrangement: safeGet(raw, 'workArrangement', 'Not Specified'),
-      duration: safeGet(raw, 'duration', 'Not Specified'),
-
-      description: safeGet(raw, 'jdText') !== 'Not Specified' ? raw['jdText'] : (raw['additionalDetails'] || 'No additional details provided.'),
-
-      applyLink: raw['toApply'] || null,
-      jdLink: raw['jdLink'] || null,
-
-      posterName: safeGet(raw, 'posterEmail', 'Anonymous').split('@')[0],
-      posterEmail: safeGet(raw, 'posterEmail', '')
+      deadlineRaw: raw['isRolling'] ? 'rolling' : (raw['deadline'] || null),
+      postedDate: raw['start_date'] || null,
+      // ── Overview grid fields ────────────────────────────────────────────────
+      skills: skillsText,
+      compensation: safeGet(raw, 'compensation_type', safeGet(raw, 'compensation', 'Not Specified')),
+      workArrangement: locationProxy,
+      duration: safeGet(raw, 'duration_weeks')
+        ? `${safeGet(raw, 'duration_weeks')} weeks`
+        : safeGet(raw, 'duration', 'Not Specified'),
+      // ── Description ────────────────────────────────────────────────────────
+      description: safeGet(raw, 'job_description') !== 'Not Specified'
+        ? raw['job_description']
+        : (safeGet(raw, 'eligibility_restrictions') !== 'Not Specified'
+          ? raw['eligibility_restrictions']
+          : 'No additional details provided.'),
+      // ── Links ──────────────────────────────────────────────────────────────
+      applyLink: raw['apply_url'] || raw['apply_method'] || null,
+      jdLink: raw['jd_link'] || null,
+      // ── Submitter ──────────────────────────────────────────────────────────
+      posterName: safeGet(raw, 'submitter_email', 'Anonymous').split('@')[0],
+      posterEmail: safeGet(raw, 'submitter_email', '')
     };
   };
 
@@ -107,12 +132,35 @@
     }
   };
 
+  // Matches client.js configuration
+  const BASE_URL = "https://connect-placecom.vercel.app/api";
+  // const BASE_URL = "http://localhost:3000/api";
+
   const fetchFromNetwork = async () => {
     try {
-      const response = await chrome.runtime.sendMessage({ action: "fetchOpportunities" });
-      if (response && response.error) throw new Error(response.message);
+      /*
+       * Fetch directly from the content script. Since the endpoint is now public
+       * we don't need any API key, and by doing it client-side we seamlessly 
+       * satisfy the origin constraints.
+       */
+      const res = await fetch(`${BASE_URL}/duperset/external-opportunities/`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json"
+        }
+      });
 
-      const rawList = Array.isArray(response) ? response : [];
+      if (!res.ok) {
+        throw new Error(`API request failed with status ${res.status}`);
+      }
+
+      const data = await res.json();
+
+      if (!data.success || !Array.isArray(data.opportunities)) {
+        throw new Error('Unexpected response shape from external-opportunities API');
+      }
+
+      const rawList = data.opportunities;
       saveToCache(rawList);
       return rawList.map(normalizeOpportunity);
 

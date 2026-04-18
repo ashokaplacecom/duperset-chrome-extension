@@ -38,16 +38,28 @@ const S = {
     justifyContent: "space-between",
     alignItems: "flex-start",
   },
+  titleWrapper: {
+    display: "flex",
+    flexDirection: "column",
+  },
   title: {
-    fontSize: 20,
-    fontWeight: 700,
+    fontSize: 26,
+    fontWeight: 900,
+    letterSpacing: "-1.5px",
+    background: "linear-gradient(135deg, #1e1b72 30%, #4f46e5 100%)",
+    WebkitBackgroundClip: "text",
+    WebkitTextFillColor: "transparent",
     margin: 0,
+    lineHeight: 1,
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: 11,
     color: "#6b7280",
-    margin: "4px 0 0",
-    fontWeight: 400,
+    margin: "6px 0 0",
+    fontWeight: 600,
+    textTransform: "uppercase",
+    letterSpacing: "1.5px",
+    opacity: 0.8,
   },
   closeBtn: {
     position: "absolute",
@@ -174,7 +186,7 @@ export function Sidebar({ onVerify, onMajorMinor, onViewLatest, onViewHistory })
       {/* Sidebar Panel */}
       <div style={S.sidebar(isOpen)}>
         <div style={S.header}>
-          <div>
+          <div style={S.titleWrapper}>
             <h1 style={S.title}>Duperset</h1>
             <p style={S.subtitle}>by PlaceCom</p>
           </div>
@@ -211,8 +223,21 @@ export function Sidebar({ onVerify, onMajorMinor, onViewLatest, onViewHistory })
           </button>
 
           <p style={S.sectionTitle}>Resources</p>
-          <button style={S.btn} onClick={() => window.open("https://connect-placecom.vercel.app", "_blank")}>
+          <button
+            style={S.btn}
+            onClick={() => {
+              window.history.pushState({}, '', '/students/external-opportunities');
+              window.dispatchEvent(new PopStateEvent('popstate', { state: {} }));
+              toggle();
+            }}
+          >
             <div style={S.btnIcon}><Globe size={18} /></div>
+            <span style={S.btnText}>External Opportunities</span>
+            <ChevronRight size={16} style={S.btnArrow} />
+          </button>
+
+          <button style={S.btn} onClick={() => window.open("https://connect-placecom.vercel.app", "_blank")}>
+            <div style={S.btnIcon}><ExternalLink size={18} /></div>
             <span style={S.btnText}>Visit our Website</span>
             <ExternalLink size={14} style={S.btnArrow} />
           </button>

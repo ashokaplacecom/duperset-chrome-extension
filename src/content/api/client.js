@@ -1,6 +1,5 @@
-// const BASE_URL = "https://connect-placecom.vercel.app/api";
-const BASE_URL = "http://localhost:3000/api"
-const API_KEY = "ext_5ab80ffffa8b964ac7cf9e29c41603d6579a7a0d3c517671f402bd17e270f397";
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://connect-placecom.vercel.app/api";
+const API_KEY = import.meta.env.VITE_PLACECOM_API_KEY;
 
 /**
  * Thin wrapper around fetch that:
@@ -252,4 +251,42 @@ export async function getMajorMinorStatus(email) {
  */
 export async function getMajorMinorArchives(email) {
     return post("/duperset/major-minor-change/archives/", { email });
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   External Opportunities API
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Generic GET helper — no request body, no API key (public endpoint).
+ *
+ * @param {string} path - Path relative to BASE_URL
+ * @returns {Promise<object>}
+ */
+async function get(path) {
+    try {
+        const res = await fetch(`${BASE_URL}${path}`, {
+            method: "GET",
+            headers: { 
+                "Content-Type": "application/json"
+            },
+        });
+
+        let data;
+        try {
+            data = await res.json();
+        } catch {
+            data = { success: false, message: `Server error (${res.status})` };
+        }
+
+        if (!res.ok && data.success !== false) {
+            data.success = false;
+            data.message = data.message || `Request failed (${res.status})`;
+        }
+
+        return data;
+    } catch (err) {
+        console.error(`[DupeSet API] GET ${path} failed:`, err);
+        return { success: false, message: "Network error. Please check your connection." };
+    }
 }
