@@ -15,22 +15,22 @@ export function LatestRequestModal({ visible, onClose }) {
       setError("Please enter a valid @ashoka.edu.in email.");
       return;
     }
-    
+
     setError(null);
     setLoading(true);
-    
+
     try {
       const [vRes, mmRes] = await Promise.all([
         getVerificationStatus(email),
         getMajorMinorStatus(email)
       ]);
-      
+
       let winner = null;
       const vData = vRes.success ? vRes.data : null;
       const mmData = mmRes.success ? mmRes.data : null;
-      
+
       if (vData && mmData) {
-        winner = new Date(vData.raised_at) > new Date(mmData.raised_at) 
+        winner = new Date(vData.raised_at) > new Date(mmData.raised_at)
           ? { ...vData, type: "Profile Verification" }
           : { ...mmData, type: "Major/Minor Change" };
       } else if (vData) {
@@ -38,7 +38,7 @@ export function LatestRequestModal({ visible, onClose }) {
       } else if (mmData) {
         winner = { ...mmData, type: "Major/Minor Change" };
       }
-      
+
       setLatestRequest(winner);
       setSearched(true);
     } catch (err) {
@@ -65,7 +65,7 @@ export function LatestRequestModal({ visible, onClose }) {
 
   const formatDate = (iso) => {
     if (!iso) return "N/A";
-    return new Date(iso).toLocaleDateString("en-GB", { 
+    return new Date(iso).toLocaleDateString("en-GB", {
       day: 'numeric', month: 'short', year: 'numeric',
       hour: '2-digit', minute: '2-digit'
     });
@@ -76,8 +76,8 @@ export function LatestRequestModal({ visible, onClose }) {
     if (!iso) return "N/A";
     const date = new Date(iso);
     // Rough estimate: usually 48 hr SLA for general requests
-    date.setHours(date.getHours() + 48); 
-    return date.toLocaleDateString("en-GB", { 
+    date.setHours(date.getHours() + 48);
+    return date.toLocaleDateString("en-GB", {
       day: 'numeric', month: 'short', year: 'numeric',
       hour: '2-digit', minute: '2-digit'
     });
@@ -87,7 +87,7 @@ export function LatestRequestModal({ visible, onClose }) {
     <div style={S.overlay} onClick={e => e.target === e.currentTarget && handleClose()}>
       <div style={S.card}>
         <button style={S.closeBtn} onClick={handleClose}>✕</button>
-        
+
         <div style={S.header}>
           <div>
             <h2 style={S.title}>Request Status</h2>
@@ -117,9 +117,9 @@ export function LatestRequestModal({ visible, onClose }) {
                 onKeyDown={e => e.key === "Enter" && handleSearch()}
               />
               <div style={{ height: 14 }} />
-              <button 
-                style={S.btnPrimary(loading)} 
-                onClick={handleSearch} 
+              <button
+                style={S.btnPrimary(loading)}
+                onClick={handleSearch}
                 disabled={loading}
               >
                 {loading ? "Searching…" : "Track Request"}
@@ -140,10 +140,10 @@ export function LatestRequestModal({ visible, onClose }) {
                     <span style={S.rowLabel}>Raised on</span>
                     <span style={S.rowValue}>{formatDate(latestRequest.raised_at)}</span>
                   </div>
-                  
+
                   {latestRequest.status === "pending" && (
                     <div style={S.row}>
-                      <span style={S.rowLabel}>Expected SLA Deadline</span>
+                      <span style={S.rowLabel}>Expected Deadline</span>
                       <span style={S.rowValue}>{calculateDeadline(latestRequest.raised_at, latestRequest.type)}</span>
                     </div>
                   )}

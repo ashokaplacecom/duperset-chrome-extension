@@ -12,6 +12,9 @@ import {
   ExternalLink
 } from "lucide-react";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://connect-placecom.vercel.app/api";
+const ROOT_URL = API_BASE_URL.replace(/\/api\/?$/, "");
+
 /* ─── Inline styles ─── */
 const S = {
   sidebar: (isOpen) => ({
@@ -38,6 +41,17 @@ const S = {
     justifyContent: "space-between",
     alignItems: "flex-start",
   },
+  brandWrapper: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+  },
+  logo: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    objectFit: "contain",
+  },
   titleWrapper: {
     display: "flex",
     flexDirection: "column",
@@ -55,7 +69,7 @@ const S = {
   subtitle: {
     fontSize: 11,
     color: "#6b7280",
-    margin: "6px 0 0",
+    margin: "2px 0 0",
     fontWeight: 600,
     textTransform: "uppercase",
     letterSpacing: "1.5px",
@@ -83,7 +97,7 @@ const S = {
     color: "#9ca3af",
     textTransform: "uppercase",
     letterSpacing: "1px",
-    margin: "24px 0 12px 4px",
+    margin: "24px 0 6px 4px",
   },
   btn: {
     display: "flex",
@@ -137,15 +151,28 @@ const S = {
     opacity: 0.3,
   },
   footer: {
-    padding: "20px",
+    padding: "20px 24px",
     borderTop: "1px solid #f3f4f6",
     textAlign: "center",
+    display: "flex",
+    flexDirection: "column",
+    gap: "6px",
+    alignItems: "center",
+  },
+  footerText: {
+    fontSize: 12,
+    color: "#6b7280",
+    fontWeight: 500,
+    lineHeight: "1.45",
+    margin: 0,
+    textWrap: "balance",
   },
   footerLink: {
     fontSize: 12,
-    color: "#9ca3af",
+    color: "#4f46e5",
     textDecoration: "none",
-    fontWeight: 500,
+    fontWeight: 600,
+    transition: "all 0.2s ease",
   },
   hamburger: (isOpen) => ({
     position: "fixed",
@@ -169,6 +196,7 @@ const S = {
 
 export function Sidebar({ onVerify, onMajorMinor, onViewLatest, onViewHistory }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isFooterHovered, setIsFooterHovered] = useState(false);
 
   const toggle = () => setIsOpen(!isOpen);
 
@@ -186,9 +214,16 @@ export function Sidebar({ onVerify, onMajorMinor, onViewLatest, onViewHistory })
       {/* Sidebar Panel */}
       <div style={S.sidebar(isOpen)}>
         <div style={S.header}>
-          <div style={S.titleWrapper}>
-            <h1 style={S.title}>Duperset</h1>
-            <p style={S.subtitle}>by PlaceCom</p>
+          <div style={S.brandWrapper}>
+            <img
+              src={chrome.runtime.getURL("images/placecom_logo.png")}
+              alt="PlaceCom Logo"
+              style={S.logo}
+            />
+            <div style={S.titleWrapper}>
+              <h1 style={S.title}>Duperset</h1>
+              <p style={S.subtitle}>by PlaceCom</p>
+            </div>
           </div>
           <button style={S.closeBtn} onClick={toggle}>
             ✕
@@ -196,7 +231,7 @@ export function Sidebar({ onVerify, onMajorMinor, onViewLatest, onViewHistory })
         </div>
 
         <div style={S.content}>
-          <p style={S.sectionTitle}>Profile & Graduation</p>
+          <p style={S.sectionTitle}>Raise a Request</p>
           <button style={S.btn} onClick={() => { onVerify(); toggle(); }}>
             <div style={S.btnIcon}><ShieldCheck size={18} /></div>
             <span style={S.btnText}>Verify My Profile</span>
@@ -205,7 +240,7 @@ export function Sidebar({ onVerify, onMajorMinor, onViewLatest, onViewHistory })
 
           <button style={S.btn} onClick={() => { onMajorMinor(); toggle(); }}>
             <div style={S.btnIcon}><GraduationCap size={18} /></div>
-            <span style={S.btnText}>Request Major/Minor</span>
+            <span style={S.btnText}>Major/Minor Change</span>
             <ChevronRight size={16} style={S.btnArrow} />
           </button>
 
@@ -236,13 +271,13 @@ export function Sidebar({ onVerify, onMajorMinor, onViewLatest, onViewHistory })
             <ChevronRight size={16} style={S.btnArrow} />
           </button>
 
-          <button style={S.btn} onClick={() => window.open("https://connect-placecom.vercel.app", "_blank")}>
+          <button style={S.btn} onClick={() => window.open(`${ROOT_URL}`, "_blank")}>
             <div style={S.btnIcon}><ExternalLink size={18} /></div>
             <span style={S.btnText}>Visit our Website</span>
             <ExternalLink size={14} style={S.btnArrow} />
           </button>
 
-          <button style={S.btn} onClick={() => window.open("https://connect-placecom.vercel.app/resources", "_blank")}>
+          <button style={S.btn} onClick={() => window.open(`${ROOT_URL}/duperset/resources`, "_blank")}>
             <div style={S.btnIcon}><BookOpen size={18} /></div>
             <span style={S.btnText}>Access Resources</span>
             <ExternalLink size={14} style={S.btnArrow} />
@@ -250,23 +285,41 @@ export function Sidebar({ onVerify, onMajorMinor, onViewLatest, onViewHistory })
         </div>
 
         <div style={S.footer}>
-          <a href="#" style={S.footerLink}>Ashoka University • PlaceCom 2026</a>
+          <p style={S.footerText}>
+            Built by Soham Tulsyan, Ananya Karel, Ibrahim Khalil & Saransh Goel
+          </p>
+          <a
+            href="https://placecom.ashoka.edu.in"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              ...S.footerLink,
+              color: isFooterHovered ? "#1e1b72" : "#4f46e5",
+              textDecoration: isFooterHovered ? "underline" : "none",
+            }}
+            onMouseEnter={() => setIsFooterHovered(true)}
+            onMouseLeave={() => setIsFooterHovered(false)}
+          >
+            Maintained by Team Placecom
+          </a>
         </div>
-      </div>
+      </div >
 
       {/* Background Overlay */}
-      {isOpen && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.2)",
-            backdropFilter: "blur(2px)",
-            zIndex: 10000,
-          }}
-          onClick={toggle}
-        />
-      )}
+      {
+        isOpen && (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.2)",
+              backdropFilter: "blur(2px)",
+              zIndex: 10000,
+            }}
+            onClick={toggle}
+          />
+        )
+      }
     </>
   );
 }

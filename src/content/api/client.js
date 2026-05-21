@@ -54,7 +54,7 @@ async function post(path, body) {
  * @returns {Promise<{ success: boolean, message: string }>}
  */
 export async function sendOTP(email) {
-    return post("/duperset/otp/generate/", { email });
+    return post("/duperset/otp/generate", { email });
 }
 
 /**
@@ -74,7 +74,7 @@ export async function verifyOTP({ email, otp, message = "", isEmergency = false 
     // Ensure OTP is a number if it's a numeric string, as some backends are strict.
     const numericOtp = typeof otp === "string" ? parseInt(otp, 10) : otp;
 
-    const otpRes = await post("/duperset/otp/verify/", { email, otp: numericOtp });
+    const otpRes = await post("/duperset/otp/verify", { email, otp: numericOtp });
 
     if (!otpRes.success) {
         return otpRes; // propagate error directly (wrong OTP, expired, etc.)
@@ -107,7 +107,7 @@ export async function verifyOTP({ email, otp, message = "", isEmergency = false 
  */
 export async function verifyOTPOnly({ email, otp }) {
     const numericOtp = typeof otp === "string" ? parseInt(otp, 10) : otp;
-    return post("/duperset/otp/verify/", { email, otp: numericOtp });
+    return post("/duperset/otp/verify", { email, otp: numericOtp });
 }
 
 /**
@@ -123,7 +123,7 @@ export async function verifyOTPOnly({ email, otp }) {
  * @returns {Promise<{ success: boolean, message: string, requestId?: number }>}
  */
 export async function createVerification({ email, message = "", isEmergency = false }) {
-    return post("/duperset/verifications/create/", {
+    return post("/duperset/verifications/create", {
         email,
         message: message.trim(),
         isEmergency
@@ -148,7 +148,7 @@ export async function createVerification({ email, message = "", isEmergency = fa
  * }>}
  */
 export async function getVerificationStatus(email) {
-    return post("/duperset/verifications/status/", { email });
+    return post("/duperset/verifications/status", { email });
 }
 
 /**
@@ -168,7 +168,7 @@ export async function getVerificationStatus(email) {
  * }>}
  */
 export async function getVerificationArchives(email) {
-    return post("/duperset/verifications/archives/", { email });
+    return post("/duperset/verifications/archives", { email });
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -202,7 +202,7 @@ export async function createMajorMinorChange({
     currentMinor,
     prospectiveMinor,
 }) {
-    return post("/duperset/major-minor-change/create/", {
+    return post("/duperset/major-minor-change/create", {
         studentId,
         email,
         ...(currentMajor     ? { currentMajor }     : {}),
@@ -230,7 +230,7 @@ export async function createMajorMinorChange({
  * }>}
  */
 export async function getMajorMinorStatus(email) {
-    return post("/duperset/major-minor-change/status/", { email });
+    return post("/duperset/major-minor-change/status", { email });
 }
 
 /**
@@ -250,7 +250,7 @@ export async function getMajorMinorStatus(email) {
  * }>}
  */
 export async function getMajorMinorArchives(email) {
-    return post("/duperset/major-minor-change/archives/", { email });
+    return post("/duperset/major-minor-change/archives", { email });
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

@@ -1,6 +1,4 @@
 (() => {
-  console.log('[ExtOpp] Script loaded.');
-
   /*───────────────────────────────────
    * CONFIG
    *───────────────────────────────────*/
@@ -85,8 +83,8 @@
       skills: skillsText,
       compensation: safeGet(raw, 'compensation_type', safeGet(raw, 'compensation', 'Not Specified')),
       workArrangement: locationProxy,
-      duration: safeGet(raw, 'duration_weeks')
-        ? `${safeGet(raw, 'duration_weeks')} weeks`
+      duration: (raw['duration_weeks'] && raw['duration_weeks'] !== 'Not Specified')
+        ? (isNaN(raw['duration_weeks']) ? raw['duration_weeks'] : `${raw['duration_weeks']} weeks`)
         : safeGet(raw, 'duration', 'Not Specified'),
       // ── Description ────────────────────────────────────────────────────────
       description: safeGet(raw, 'job_description') !== 'Not Specified'
@@ -98,7 +96,7 @@
       applyLink: raw['apply_url'] || raw['apply_method'] || null,
       jdLink: raw['jd_link'] || null,
       // ── Submitter ──────────────────────────────────────────────────────────
-      posterName: safeGet(raw, 'submitter_email', 'Anonymous').split('@')[0],
+      posterName: safeGet(raw, 'submitter_email', 'Anonymous'),
       posterEmail: safeGet(raw, 'submitter_email', '')
     };
   };
@@ -133,8 +131,7 @@
   };
 
   // Matches client.js configuration
-  const BASE_URL = "https://connect-placecom.vercel.app/api";
-  // const BASE_URL = "http://localhost:3000/api";
+  const BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://connect-placecom.vercel.app/api";
 
   const fetchFromNetwork = async () => {
     try {
@@ -143,7 +140,7 @@
        * we don't need any API key, and by doing it client-side we seamlessly 
        * satisfy the origin constraints.
        */
-      const res = await fetch(`${BASE_URL}/duperset/external-opportunities/`, {
+      const res = await fetch(`${BASE_URL}/duperset/external-opportunities`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json"
@@ -155,6 +152,7 @@
       }
 
       const data = await res.json();
+      console.log("[ExtOpp] Temp Request Data Log:", data);
 
       if (!data.success || !Array.isArray(data.opportunities)) {
         throw new Error('Unexpected response shape from external-opportunities API');
@@ -218,6 +216,29 @@
         gap: 1rem;
         flex: 1;
         overflow: hidden;
+      }
+
+      .extopp-refresh-btn {
+        background: none;
+        border: none;
+        padding: 4px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #3B32B3;
+        border-radius: 4px;
+        transition: background-color 0.2s, transform 0.2s;
+      }
+      .extopp-refresh-btn:hover {
+        background-color: #f0f4ff;
+      }
+      .extopp-refresh-btn:active {
+        transform: scale(0.9);
+      }
+      .extopp-refresh-btn.spinning i {
+        display: inline-block;
+        animation: spin 0.8s linear infinite;
       }
 
       /* Sidebar */
@@ -483,7 +504,12 @@
       <div class="extopp-main-wrapper">
         <div class="extopp-sidebar">
           <div class="extopp-sidebar-header">
-             <h3>All Opportunities</h3>
+             <div style="display: flex; align-items: center; gap: 8px;">
+               <h3>All Opportunities</h3>
+               <button id="extopp-refresh-btn" class="extopp-refresh-btn" title="Refresh opportunities">
+                 <i class="fi fi-rr-refresh"></i>
+               </button>
+             </div>
              <div class="extopp-refresh-indicator hidden" id="extopp-refresh-indicator">
                <div class="extopp-spinner"></div>
                <span>Fetching Latest Opportunities...</span>
@@ -532,8 +558,30 @@
       actionButtons += `<button class="btn btn-primary" disabled style="opacity:0.6; cursor:not-allowed;">Apply (Link Not Specified)</button>`;
     }
 
-    if (opp.jdLink && opp.jdLink !== opp.applyLink) {
-      actionButtons += `<a href="${opp.jdLink}" target="_blank" class="btn btn-secondary">View JD</a>`;
+
+
+    const deadlineBannerText = opp.deadlineType === 'rolling'
+      ? 'Applications accepted on a <strong>rolling basis</strong>'
+      : `Applications close on <strong>${opp.deadline}</strong>`;
+
+    let jdSectionContent = '';
+    if (opp.jdLink) {
+      jdSectionContent = `
+        <div style="border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden; background: #fafafa; box-shadow: 0 4px 12px rgba(0,0,0,0.05); width: 100%;">
+          <div style="padding: 1rem 1.5rem; background: #f8f9fa; border-bottom: 1px solid #e0e0e0; display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; color: #3B32B3; font-weight: 600;">
+              <i class="fi fi-rr-document"></i>
+              <span>Official Job Description Preview</span>
+            </div>
+            <a href="${opp.jdLink}" target="_blank" class="btn btn-secondary" style="padding: 4px 12px; font-size: 0.8rem; border-radius: 6px;">Open Full Document <i class="fi fi-rr-arrow-up-right" style="margin-left: 4px; font-size: 0.7rem;"></i></a>
+          </div>
+          <div style="height: 650px; position: relative; background: #fff;">
+            <iframe src="${opp.jdLink}" style="width: 100%; height: 100%; border: none;" title="Job Description View"></iframe>
+          </div>
+        </div>
+      `;
+    } else {
+      jdSectionContent = `<div class="description-content">${opp.description}</div>`;
     }
 
     detailContainer.innerHTML = `
@@ -544,7 +592,7 @@
             
              <div class="extopp-deadline-banner ${opp.deadlineType}">
                 <i class="fi fi-rr-clock"></i>
-                <span>Applications close on <strong>${opp.deadline}</strong></span>
+                <span>${deadlineBannerText}</span>
             </div>
         </div>
         <div class="extopp-actions">
@@ -568,7 +616,7 @@
                 <span>${opp.compensation}</span>
             </div>
             <div class="overview-item">
-                <label>Duration (weeks)</label>
+                <label>Duration</label>
                 <span>${opp.duration}</span>
             </div>
             <div class="overview-item">
@@ -578,15 +626,13 @@
         </div>
       </div>
 
-      <div class="extopp-section">
-        <h3>Job Description</h3>
-        <div class="description-content">
-            ${opp.description}
-        </div>
+      <div class="extopp-section" style="width: 100%;">
+        <h3>${opp.jdLink ? 'Official Job Description' : 'Job Description'}</h3>
+        ${jdSectionContent}
       </div>
       
-      <div style="margin-top: 3rem; font-size: 0.8rem; color: #999; text-align: center;">
-        Posted by ${opp.posterName}
+      <div style="margin-top: 3rem; font-size: 0.8rem; color: #999; text-align: center; border-top: 1px solid #f0f0f0; padding-top: 1.5rem;">
+        Posted by <strong>${opp.posterName}</strong>
       </div>
     `;
   };
@@ -601,30 +647,59 @@
     let selectedId = null;
     let visibleLimit = BATCH_SIZE;
 
+    // Helper to fetch from network and update
+    const performRefresh = async () => {
+      const refreshBtn = document.getElementById('extopp-refresh-btn');
+      const refreshIndicator = document.getElementById('extopp-refresh-indicator');
+
+      if (refreshBtn) refreshBtn.classList.add('spinning');
+      if (refreshIndicator) refreshIndicator.classList.remove('hidden');
+
+      const freshOpps = await fetchFromNetwork();
+
+      if (refreshBtn) refreshBtn.classList.remove('spinning');
+      if (refreshIndicator) refreshIndicator.classList.add('hidden');
+
+      if (freshOpps) {
+        allOpps = freshOpps;
+        renderCoreList();
+        console.log('[ExtOpp] UI refreshed manually.');
+      }
+    };
+
+    // Render Layout First
+    if (!document.getElementById('extopp-list')) {
+      renderLayout(container);
+
+      document.getElementById('extopp-load-more-btn').addEventListener('click', () => {
+        visibleLimit += BATCH_SIZE;
+        renderCoreList();
+      });
+
+      const refreshBtn = document.getElementById('extopp-refresh-btn');
+      if (refreshBtn) {
+        refreshBtn.addEventListener('click', performRefresh);
+      }
+    }
+
     // Helper to render current state
     const renderCoreList = () => {
-      const listContainer = document.getElementById('extopp-list');
-      const loadMoreContainer = document.getElementById('extopp-load-more-container');
-      const loadMoreBtn = document.getElementById('extopp-load-more-btn');
-
-      if (!allOpps.length) {
-        if (!container.innerHTML || container.innerHTML.includes('Loading')) {
-          container.innerHTML = '<div style="padding:2rem; color:red;">No external opportunities found at this time.</div>';
-        }
-        return;
-      }
-
-      if (!document.getElementById('extopp-list')) {
-        renderLayout(container);
-
-        document.getElementById('extopp-load-more-btn').addEventListener('click', () => {
-          visibleLimit += BATCH_SIZE;
-          renderCoreList();
-        });
-      }
-
       const currentListContainer = document.getElementById('extopp-list');
       const currentLoadMoreContainer = document.getElementById('extopp-load-more-container');
+      const detailContainer = document.getElementById('extopp-detail');
+
+      if (!currentListContainer) return;
+
+      if (!allOpps.length) {
+        currentListContainer.innerHTML = `
+          <div style="padding: 1.5rem; text-align: center; color: #7f8c8d; font-size: 0.95rem;">
+            No available opportunities.
+          </div>
+        `;
+        currentLoadMoreContainer.style.display = 'none';
+        detailContainer.innerHTML = `<div class="empty-state">No opportunity selected</div>`;
+        return;
+      }
 
       // Selection Logic
       if (!selectedId && allOpps.length > 0) selectedId = allOpps[0].id;
@@ -654,22 +729,27 @@
       }
 
       // Detail View Logic
-      const detailContainer = document.getElementById('extopp-detail');
       if (selectedId && (detailContainer.innerHTML.includes('Select an opportunity') || !detailContainer.querySelector('h1'))) {
         const selectedOpp = allOpps.find(o => o.id === selectedId);
         if (selectedOpp) renderDetailView(selectedOpp);
       }
     };
 
-    // 1. Initial Render with Cache
+    // 1. Initial Render with Cache or loading placeholder
     if (allOpps.length > 0) {
       renderCoreList();
     } else {
-      container.innerHTML = '<div style="padding:2rem;">Loading opportunities...</div>';
+      const currentListContainer = document.getElementById('extopp-list');
+      if (currentListContainer) {
+        currentListContainer.innerHTML = `
+          <div style="padding: 1.5rem; text-align: center; color: #7f8c8d; font-size: 0.95rem;">
+            Loading opportunities...
+          </div>
+        `;
+      }
     }
 
-    // 2. Fetch fresh data
-    // Show loader if we have cached data (optimistic UI scenario)
+    // 2. Fetch fresh data in the background
     const refreshIndicator = document.getElementById('extopp-refresh-indicator');
     if (allOpps.length > 0 && refreshIndicator) {
       refreshIndicator.classList.remove('hidden');
@@ -687,7 +767,14 @@
       renderCoreList();
       console.log('[ExtOpp] UI updated with fresh data.');
     } else if (!allOpps.length) {
-      container.innerHTML = '<div style="padding:2rem; color:red;">Failed to load opportunities. Please try again later.</div>';
+      const currentListContainer = document.getElementById('extopp-list');
+      if (currentListContainer) {
+        currentListContainer.innerHTML = `
+          <div style="padding: 1.5rem; text-align: center; color: #d9534f; font-size: 0.95rem;">
+            Failed to load opportunities. Please try again later.
+          </div>
+        `;
+      }
     }
   };
 

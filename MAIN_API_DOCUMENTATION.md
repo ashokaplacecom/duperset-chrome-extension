@@ -123,7 +123,7 @@ Provide `key` in request JSON. It must match server-side `API_KEY_WEB_EXTENSION`
 
 ---
 
-## 3) DupeSet Verifications API
+## 3) Duperset Verifications API
 
 > These endpoints support verification request lifecycle management.
 

@@ -9,12 +9,13 @@ export default defineConfig({
     rollupOptions: {
       input: {
         content: resolve(__dirname, "src/content/index.jsx"),
+        "external-opportunities": resolve(__dirname, "src/content/external-opportunities.js"),
       },
       output: {
-        entryFileNames: "content.js",
+        entryFileNames: "[name].js",
       },
     },
     outDir: "dist",
-    emptyOutDir: false,
+    emptyOutDir: true,
   },
 });
