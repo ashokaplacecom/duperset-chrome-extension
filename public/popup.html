@@ -1,97 +1,263 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Duperset Info</title>
+    <title>Duperset Dashboard</title>
+    <!-- Modern Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap"
+        rel="stylesheet">
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #ffffff;
-            color: #3B32B3;
-            width: 300px;
-            padding: 20px;
-            text-align: left;
-            border-radius: 12px;
+        :root {
+            --brand-primary: #1e1b72;
+            --brand-secondary: #3b32b3;
+            --brand-gradient: linear-gradient(135deg, #1e1b72 0%, #4f46e5 100%);
+            --text-dark: #1e293b;
+            --text-muted: #64748b;
+            --bg-light: #f8fafc;
+        }
+
+        * {
             box-sizing: border-box;
+            margin: 0;
+            padding: 0;
         }
 
-        h2 {
-            text-align: center;
-            font-size: 22px;
-            margin-bottom: 10px;
-            color: #3B32B3;
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-light);
+            color: var(--text-dark);
+            width: 340px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            overflow-x: hidden;
         }
 
-        hr {
-            border: 0;
-            height: 1px;
-            background: #3B32B3;
-            margin: 15px 0;
+        /* Brand Header */
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 4px;
         }
 
-        p {
-            font-size: 14px;
-            line-height: 1.5;
-            margin-bottom: 10px;
-        }
-
-        .note {
-            font-style: italic;
-            font-size: 12px;
-            opacity: 0.7;
-            text-align: center;
-            margin-top: 20px;
-        }
-
-        .launch-button {
-            display: block;
-            width: 100%;
-            text-align: center;
-            background: #3B32B3;
-            color: white;
-            padding: 10px;
+        .logo {
+            width: 48px;
+            height: 48px;
+            object-fit: contain;
             border-radius: 8px;
-            text-decoration: none;
-            font-size: 14px;
-            margin-top: 20px;
-            transition: 0.3s;
-            border: none;
-            cursor: pointer;
+            background: white;
+            padding: 4px;
+            box-shadow: 0 4px 12px rgba(30, 27, 114, 0.08);
         }
 
-        .launch-button:hover {
-            background: #2a2391;
+        .title-container {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 22px;
+            font-weight: 800;
+            color: var(--brand-primary);
+            line-height: 1.1;
+        }
+
+        .subtitle {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #6366f1;
+        }
+
+        /* Glass Card Info container */
+        .info-card {
+            background: white;
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 10px 25px -5px rgba(30, 27, 114, 0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .info-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--brand-primary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .info-desc {
+            font-size: 13px;
+            line-height: 1.5;
+            color: var(--text-dark);
+        }
+
+        .features-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 4px;
+        }
+
+        .features-list li {
+            font-size: 12px;
+            color: #475569;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            line-height: 1.4;
+        }
+
+        .features-list li::before {
+            content: "✦";
+            color: #4f46e5;
+            font-weight: bold;
+        }
+
+        /* Primary Call-to-action */
+        .btn-launch {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            background: var(--brand-gradient);
+            color: white;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            padding: 12px 16px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(79, 70, 229, 0.35);
+            transition: all 0.2s ease;
+        }
+
+        .btn-launch:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(79, 70, 229, 0.45);
+        }
+
+        .btn-launch:active {
+            transform: translateY(1px);
+        }
+
+        /* Direction Note */
+        .direction-note {
+            background: #eef2ff;
+            border-left: 4px solid #6366f1;
+            padding: 10px 12px;
+            border-radius: 0 8px 8px 0;
+            font-size: 12px;
+            line-height: 1.4;
+            color: #3730a3;
+        }
+
+        /* Status warning box */
+        .status-box {
+            display: none;
+            background: #fffbeb;
+            border: 1px solid #fef3c7;
+            border-radius: 12px;
+            padding: 12px;
+            font-size: 12px;
+            color: #92400e;
+            line-height: 1.4;
+            margin-top: 4px;
+        }
+
+        .status-box a {
+            transition: color 0.2s ease;
+        }
+
+        .status-box a:hover {
+            color: var(--brand-secondary) !important;
+        }
+
+        /* Minimal Footer */
+        .footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 11px;
+            color: var(--text-muted);
+            border-top: 1px solid #e2e8f0;
+            padding-top: 12px;
+            margin-top: 4px;
+        }
+
+        .footer-logo-text {
+            font-weight: 600;
+            color: var(--brand-primary);
         }
     </style>
 </head>
+
 <body>
-    <h2>Duperset</h2>
-    <hr />
-    <p><strong>Duperset</strong> is your all-in-one placement assistant.</p>
+    <!-- Brand Header -->
+    <div class="header">
+        <img class="logo" src="images/placecom_logo.png" alt="PlaceCom Logo">
+        <div class="title-container">
+            <h1 class="title">Duperset</h1>
+            <span class="subtitle">v3.4</span>
+        </div>
+    </div>
 
-    <p>Quickly verify your student profile, request major/minor changes, and stay on top of internship deadlines — all from a floating sidebar extending Superset.</p>
+    <!-- Info Card -->
+    <div class="info-card">
+        <div class="info-title">
+            Presenting the new & improved Duperset
+        </div>
+        <p class="info-desc">
+            Your all-in-one Placement & Internship assistant, integrated directly within Ashoka University's Superset
+            portal.
+        </p>
+        <ul class="features-list">
+            <li>Verify student profiles & manage details seamlessly.</li>
+            <li>Submit major/minor changes directly.</li>
+            <li>Track external career opportunities in real-time.</li>
+            <li>Access curated student resources & documentation.</li>
+        </ul>
+    </div>
 
-    <p>Access FAQs, career opportunities, and our upcoming integrated chatbot for instant help.</p>
+    <!-- Warning message when not on Superset -->
+    <div id="status-message" class="status-box"></div>
 
-    <hr />
-    <div class="note">Brought to you by Placecom</div>
+    <!-- Action Button -->
+    <button id="open-sidebar" class="btn-launch">
+        Launch Duperset!
+    </button>
 
-    <script>
-        document.getElementById("open-sidebar").addEventListener("click", () => {
-            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                chrome.scripting.executeScript({
-                    target: { tabId: tabs[0].id },
-                    function: () => {
-                        if (typeof injectSidebar === "function") {
-                            injectSidebar();
-                        } else {
-                            alert("Duperset sidebar not loaded on this page.");
-                        }
-                    }
-                });
-            });
-        });
-    </script>
+    <!-- Guide Note -->
+    <div class="direction-note">
+        <strong>💡 Pro-tip:</strong> You can also toggle the sidebar at any time by clicking the floating circular blue
+        button in the bottom-right corner of the page.
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <span>Brought to you by <span class="footer-logo-text">Placecom</span></span>
+        <span>Ashoka University</span>
+    </div>
+
+    <!-- External Script (no inline script for MV3 security compliance) -->
+    <script src="popup.js"></script>
 </body>
+
 </html>

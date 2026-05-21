@@ -194,9 +194,12 @@ const S = {
   }),
 };
 
-export function Sidebar({ onVerify, onMajorMinor, onViewLatest, onViewHistory }) {
-  const [isOpen, setIsOpen] = useState(false);
+export function Sidebar({ onVerify, onMajorMinor, onViewLatest, onViewHistory, isOpen: controlledIsOpen, setIsOpen: controlledSetIsOpen }) {
+  const [localIsOpen, setLocalIsOpen] = useState(false);
   const [isFooterHovered, setIsFooterHovered] = useState(false);
+
+  const isOpen = controlledIsOpen !== undefined ? controlledIsOpen : localIsOpen;
+  const setIsOpen = controlledSetIsOpen !== undefined ? controlledSetIsOpen : setLocalIsOpen;
 
   const toggle = () => setIsOpen(!isOpen);
 
